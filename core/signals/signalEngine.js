@@ -596,34 +596,31 @@ function computeSignal({ candlesByTf, appConfig, symbol }) {
     // Check for symbol-specific special settings
     const symbolConfig = appConfig?.symbols?.[symbol] || {};
     const specialSettings = symbolConfig?.specialSettings || {};
-    
+
     // Merge special settings with base config
     const mergedConfig = {
         ...appConfig,
         signalThresholds: specialSettings?.signalThresholds || appConfig?.signalThresholds,
         categoryWeights: specialSettings?.categoryWeights || appConfig?.categoryWeights,
         confidence: specialSettings?.confidence || appConfig?.confidence,
-        indicators: specialSettings?.indicators || appConfig?.indicators
+        indicators: specialSettings?.indicators || appConfig?.indicators,
+        timeframes: specialSettings?.timeframes || appConfig?.timeframes
     };
-    
+
     // Use special timeframes if available, else default
-    const tfWeights = specialSettings?.timeframes || appConfig?.timeframes || { '1h': 50, '15m': 20, '4h': 30 };
-    const finalTfWeights = {};
-    for (const [tf, v] of Object.entries(tfWeights)) {
-        finalTfWeights[tf] = v.weight || v;
-    }
+    const tfWeights = mergedConfig?.timeframes || { '1h': 50, '15m': 20, '4h': 30 };
 
     const timeframeAnalyses = {};
     for (const [tf, candles] of Object.entries(candlesByTf)) {
-        const res = analyzeTimeframeTf(candles, tf, appConfig);
+        const res = analyzeTimeframeTf(candles, tf, mergedConfig);
         if (res) timeframeAnalyses[tf] = res;
     }
 
     const confluencePayload = analyzeConfluence(timeframeAnalyses, {
         timeframeWeights: tfWeights,
-        categoryWeights: appConfig?.categoryWeights,
-        signalThresholds: appConfig?.signalThresholds,
-        confidence: appConfig?.confidence
+        categoryWeights: mergedConfig?.categoryWeights,
+        signalThresholds: mergedConfig?.signalThresholds,
+        confidence: mergedConfig?.confidence
     });
 
     // regime/grade from 1h as primary if exists, else from overall

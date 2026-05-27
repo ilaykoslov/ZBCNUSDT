@@ -33,7 +33,15 @@ const config = {
             label: 'ZBCN / USDT',
             coinName: 'Zebec Network',
             paperTradingStateFile: './data/paperTrading_ZBCNUSDT.json',
-            paperTradingInitialBalance: 10000
+            paperTradingInitialBalance: 10000,
+            // ZBCN için özel ayarlar (dengeli + range tolerans)
+            specialSettings: {
+                signalThresholds: { buy: 11, sell: -11 },
+                categoryWeights: { trend: 22, momentum: 26, volatility: 22, volume: 15, structure: 15 },
+                timeframes: { '1h': { weight: 38 }, '15m': { weight: 32 }, '4h': { weight: 30 } },
+                confidence: { baseBuy: 56, baseSell: 56, baseNeutral: 44, minConfidence: 25, maxConfidence: 96, perPointScore: 0.5 },
+                indicators: { rsi: { period: 14 }, adx: { period: 14 }, atr: { period: 14 } }
+            }
         },
         'PROSUSDT': {
             kucoinSymbol: 'PROS-USDT',
@@ -41,7 +49,15 @@ const config = {
             label: 'PROS / USDT',
             coinName: 'Prosper',
             paperTradingStateFile: './data/paperTrading_PROSUSDT.json',
-            paperTradingInitialBalance: 5000
+            paperTradingInitialBalance: 5000,
+            // PROS için özel ayarlar (daha dengeli / range-tolerans)
+            specialSettings: {
+                signalThresholds: { buy: 10, sell: -10 },
+                categoryWeights: { trend: 20, momentum: 25, volatility: 25, volume: 15, structure: 15 },
+                timeframes: { '1h': { weight: 35 }, '15m': { weight: 40 }, '4h': { weight: 25 } },
+                confidence: { baseBuy: 55, baseSell: 55, baseNeutral: 45, minConfidence: 25, maxConfidence: 95, perPointScore: 0.5 },
+                indicators: { rsi: { period: 14 }, adx: { period: 14 }, atr: { period: 14 } }
+            }
         },
         'WLFIUSDT': {
             kucoinSymbol: 'WLFI-USDT',
@@ -49,7 +65,15 @@ const config = {
             label: 'WLFI / USDT',
             coinName: 'WLFI',
             paperTradingStateFile: './data/paperTrading_WLFIUSDT.json',
-            paperTradingInitialBalance: 5000
+            paperTradingInitialBalance: 5000,
+            // WLFI için özel ayarlar (mean-reversion / range odaklı)
+            specialSettings: {
+                signalThresholds: { buy: 9, sell: -9 },
+                categoryWeights: { trend: 18, momentum: 22, volatility: 28, volume: 16, structure: 16 },
+                timeframes: { '1h': { weight: 30 }, '15m': { weight: 45 }, '4h': { weight: 25 } },
+                confidence: { baseBuy: 54, baseSell: 54, baseNeutral: 46, minConfidence: 25, maxConfidence: 95, perPointScore: 0.5 },
+                indicators: { rsi: { period: 13 }, adx: { period: 14 }, atr: { period: 14 } }
+            }
         },
         'SOLUSDT': {
             kucoinSymbol: 'SOL-USDT',
@@ -64,6 +88,7 @@ const config = {
                 categoryWeights: { trend: 25, momentum: 30, volatility: 20, volume: 15, structure: 10 },
                 timeframes: { '1h': { weight: 40 }, '15m': { weight: 35 }, '4h': { weight: 25 } },
                 confidence: { baseBuy: 60, baseSell: 60, minConfidence: 30, maxConfidence: 98 },
+                // Trend odaklı: daha kısa indikatör pencereleri
                 indicators: { rsi: { period: 10 }, adx: { period: 10 }, atr: { period: 10 } }
             }
         }
