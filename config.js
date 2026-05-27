@@ -1,5 +1,5 @@
 // =====================================================
-// ZBCNUSDT Sinyal Dashboard - Merkezi Yapılandırma
+// ZBCNUSDT & PROSUSDT Sinyal Dashboard - Merkezi Yapılandırma
 // =====================================================
 // Bu dosya tüm ayarları tek merkezde toplar.
 // Threshold'ları, ağırlıkları ve API ayarlarını
@@ -13,15 +13,36 @@ const config = {
         host: '0.0.0.0'
     },
 
+    // === AKTİF SEMBOL (varsayılan) ===
+    activeSymbol: process.env.ACTIVE_SYMBOL || 'ZBCNUSDT', // 'ZBCNUSDT' or 'PROSUSDT'
+
     // === API AYARLARI ===
     api: {
         kucoinBase: 'https://api.kucoin.com/api/v1',
         coingeckoBase: 'https://api.coingecko.com/api/v3',
-        symbol: 'ZBCN-USDT',
-        coingeckoId: 'zebec-network',
         timeout: 15000,      // ms
         maxCandles: 100,
         retryAttempts: 2     // API başarısız olursa tekrar dene
+    },
+
+    // === SEMBOLLER ===
+    symbols: {
+        'ZBCNUSDT': {
+            kucoinSymbol: 'ZBCN-USDT',
+            coingeckoId: 'zebec-network',
+            label: 'ZBCN / USDT',
+            coinName: 'Zebec Network',
+            paperTradingStateFile: './data/paperTrading_ZBCNUSDT.json',
+            paperTradingInitialBalance: 10000
+        },
+        'PROSUSDT': {
+            kucoinSymbol: 'PROS-USDT',
+            coingeckoId: 'pros',
+            label: 'PROS / USDT',
+            coinName: 'Prosper',
+            paperTradingStateFile: './data/paperTrading_PROSUSDT.json',
+            paperTradingInitialBalance: 5000
+        }
     },
 
     // === ZAMAN DİLİMLERİ ===
@@ -32,7 +53,6 @@ const config = {
     },
 
     // === SİNYAL EŞİKLERİ ===
-    // weightedScore bu değerlerin üstünde/altında ise sinyal üretilir
     signalThresholds: {
         buy: 12,      // >= 12 ise BUY
         sell: -12     // <= -12 ise SELL
@@ -73,10 +93,10 @@ const config = {
 
     // === GELİŞMİŞ AYARLAR ===
     advanced: {
-        obvLookback: 5,           // OBV eğimi için mum sayısı
-        divergenceWindow: 25,     // Uzlaşmazlık tespit penceresi
-        peakLookAround: 2,        // Tepe/dip tespit hassasiyeti
-        supportResistanceLookback: 5  // Destek/direnç geri bakış
+        obvLookback: 5,
+        divergenceWindow: 25,
+        peakLookAround: 2,
+        supportResistanceLookback: 5
     },
 
     // === GÜVEN PUANLARI ===
@@ -89,6 +109,73 @@ const config = {
         perPointScore: 0.5,
         tfAlignmentBonus: 15,
         fullAlignmentBonus: 15
+    },
+
+    // === PAPER TRADING AYARLARI ===
+    paperTrading: {
+        enabled: true,
+        initialBalance: 10000, // USDT - varsayılan
+        mode: 'paper',
+        manualApproval: true,
+        defaultMaxPositionSize: 0.1,
+        defaultStopLossPct: 0.05,
+        defaultTakeProfitPct: 0.10,
+        feeRate: 0.001
+    },
+
+    // === RISK MANAGEMENT AYARLARI ===
+    risk: {
+        maxPositionSize: 0.1,
+        maxDailyLoss: 0.05,
+        maxOpenPositions: 3,
+        defaultStopLoss: 0.05,
+        defaultTakeProfit: 0.10,
+        riskRewardRatio: 2.0,
+        minConfidence: 60,
+        volatilityAdjustment: true
+    },
+
+    // === VERİ DOĞRULAMA AYARLARI ===
+    dataValidation: {
+        maxGapSize: 3,
+        minCandleCount: 30,
+        timestampTolerance: 60000,
+        priceTolerance: 0.01,
+        fillGaps: false,
+        gapFillMethod: 'linear'
+    },
+
+    // === RETRY AYARLARI ===
+    retry: {
+        maxRetries: 3,
+        initialDelay: 1000,
+        maxDelay: 30000,
+        backoffMultiplier: 2,
+        circuitBreakerThreshold: 5,
+        circuitBreakerTimeout: 60000
+    },
+
+    // === ALERT AYARLARI ===
+    alerts: {
+        enabled: false,
+        telegram: {
+            enabled: false,
+            token: '',
+            chatId: ''
+        },
+        discord: {
+            enabled: false,
+            webhookUrl: ''
+        },
+        email: {
+            enabled: false,
+            to: '',
+            smtp: {
+                host: '',
+                port: 587,
+                from: ''
+            }
+        }
     }
 };
 

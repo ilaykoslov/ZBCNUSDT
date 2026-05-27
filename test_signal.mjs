@@ -79,20 +79,13 @@ global.setInterval = () => 123;
 global.document.addEventListener = () => {};
 global.document.hidden = false;
 
-// Evaluate the ENTIRE script without stripping
+// Evaluate the ENTIRE script in global scope using indirect eval
 try {
-    eval(scriptContent);
+    (0, eval)(scriptContent);
     console.log('All functions loaded OK\n');
 } catch (e) {
-    console.log('Eval error (may be benign):', e.message.substring(0, 120));
-    // Check if parseKuCoinCandles exists despite the error
-    try {
-        if (typeof parseKuCoinCandles === 'function') {
-            console.log('Key functions still available despite error');
-        }
-    } catch(e2) {
-        console.log('Functions not available:', e2.message);
-    }
+    console.log('Eval error:', e.message.substring(0, 200));
+    console.log('Stack:', e.stack?.substring(0, 300));
 }
 
 // Test with real data

@@ -198,6 +198,10 @@
                 <span class="live-text">CANLI</span>
                 <span class="live-time" id="lastUpdate">--</span>
             </div>
+            <select id="symbolSelector" onchange="switchSymbol(this.value)" style="background:rgba(15,23,42,0.8);border:1px solid rgba(148,163,184,0.2);color:#e2e8f0;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+                <option value="ZBCNUSDT">🪙 ZBCN/USDT</option>
+                <option value="PROSUSDT">🪙 PROS/USDT</option>
+            </select>
             <button onclick="forceRefresh()" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.2);color:#6366f1;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;">
                 ⟳ Yenile
             </button>
@@ -315,7 +319,7 @@
             <div class="indicator-row"><span class="indicator-name">Durum</span><span class="indicator-signal" id="adxStatus">--</span></div>
             <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(148,163,184,0.08);">
                 <div class="indicator-row"><span class="indicator-name">🏷️ Piyasa Rejimi</span><span class="indicator-value" id="regimeValue" style="font-size:12px;font-weight:700;">--</span></div>
-                <div class="indicator-row"><span class="indicator-name">🎯 İşlem Notu</span><span class="indicator-value" id="gradeValue" style="font-size:16px;font-weight:900;">--</span></div>
+                <div class="indicator-row"><span class="indicator-name">🎯 İşlem Notu</span><span class="indicator-value" id="gradeValue" style="font-size:16px;font-weight:900;">--</span><span class="indicator-signal" id="gradeBadge" style="margin-left:8px;">--</span></div>
                 <div class="indicator-row" style="border-bottom:none;"><span class="indicator-name">💡 Öneri</span><span class="indicator-value" id="gradeAdvice" style="font-size:11px;font-weight:600;">--</span></div>
             </div>
         </div>
@@ -394,6 +398,73 @@
         <div class="card-title" style="cursor:pointer;" onclick="toggleSignalHistory()">📜 Sinyal Geçmişi <span id="signalHistoryToggle">▼</span></div>
         <div id="signalHistoryPanel" style="max-height:300px;overflow-y:auto;">
             <div id="signalHistoryContent" style="font-size:12px;color:#94a3b8;">Yükleniyor...</div>
+        </div>
+    </div>
+
+    <!-- ==================== PAPER TRADING PANEL ==================== -->
+    <div class="card" style="margin-bottom:24px;">
+        <div class="card-title" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="togglePaperTrading()">
+            <span>💼 Paper Trading <span id="ptMode" style="font-size:10px;color:#6366f1;font-weight:400;">(paper)</span></span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span id="ptBalance" style="font-size:14px;color:#22c55e;font-weight:700;">$10,000</span>
+                <span id="ptToggleIcon" style="font-size:12px;color:#64748b;">▼</span>
+            </div>
+        </div>
+        <div id="paperTradingPanel">
+            <!-- Quick Stats -->
+            <div class="grid-4" style="margin-bottom:16px;" id="ptStats">
+                <div class="stat-item"><span class="stat-label">Başlangıç Bakiyesi</span><span class="stat-value" id="ptInitialBalance" style="color:#94a3b8;">--</span></div>
+                <div class="stat-item"><span class="stat-label">Güncel Bakiye</span><span class="stat-value" id="ptCurrentBalance" style="color:#22c55e;">--</span></div>
+                <div class="stat-item"><span class="stat-label">Toplam Getiri</span><span class="stat-value" id="ptReturn" style="color:#94a3b8;">--</span></div>
+                <div class="stat-item"><span class="stat-label">Açık Pozisyon</span><span class="stat-value" id="ptOpenPositions">--</span></div>
+                <div class="stat-item"><span class="stat-label">Toplam İşlem</span><span class="stat-value" id="ptTotalTrades">--</span></div>
+                <div class="stat-item"><span class="stat-label">Kazanma Oranı</span><span class="stat-value" id="ptWinRate">--</span></div>
+                <div class="stat-item"><span class="stat-label">Gerçekleşen PnL</span><span class="stat-value" id="ptRealizedPnl">--</span></div>
+                <div class="stat-item"><span class="stat-label">Bekleyen Emir</span><span class="stat-value" id="ptPendingOrders">--</span></div>
+            </div>
+            
+            <!-- Trade Execution -->
+            <div class="grid-2" style="margin-bottom:16px;">
+                <div class="card" style="padding:16px;">
+                    <div class="card-title" style="margin-bottom:8px;">🚀 İşlem Aç</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        <select id="ptSignalType" style="background:rgba(15,23,42,0.8);border:1px solid rgba(148,163,184,0.2);color:#e2e8f0;padding:8px 12px;border-radius:8px;font-size:13px;">
+                            <option value="BUY">🟢 AL (LONG)</option>
+                            <option value="SELL">🔴 SAT (SHORT)</option>
+                        </select>
+                        <button onclick="executePaperTrade()" style="background:linear-gradient(135deg,#6366f1,#06b6d4);border:none;color:white;padding:8px 20px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">İşlem Yap</button>
+                        <button onclick="executeAutoTrade()" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.2);color:#22c55e;padding:8px 20px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;">🤖 Otomatik İşlem</button>
+                    </div>
+                    <div id="ptTradeResult" style="margin-top:8px;font-size:12px;color:#94a3b8;"></div>
+                </div>
+                <div class="card" style="padding:16px;">
+                    <div class="card-title" style="margin-bottom:8px;">⚠️ Risk Yönetimi</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        <button onclick="checkStopLossTakeProfit()" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.2);color:#ef4444;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;">🛑 SL/TP Kontrol</button>
+                        <button onclick="setModePaper()" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.2);color:#6366f1;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;">📄 Paper Mod</button>
+                        <button onclick="resetPaperTrading()" style="background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.2);color:#94a3b8;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;">🔄 Sıfırla</button>
+                    </div>
+                    <div id="ptRiskResult" style="margin-top:8px;font-size:12px;color:#94a3b8;"></div>
+                </div>
+            </div>
+
+            <!-- Open Positions & Pending Orders -->
+            <div class="grid-2" style="margin-bottom:16px;">
+                <div class="card" style="padding:16px;">
+                    <div class="card-title" style="margin-bottom:8px;">📌 Açık Pozisyonlar</div>
+                    <div id="ptPositionsContent" style="font-size:12px;color:#94a3b8;">Yükleniyor...</div>
+                </div>
+                <div class="card" style="padding:16px;">
+                    <div class="card-title" style="margin-bottom:8px;">⏳ Bekleyen Onaylar</div>
+                    <div id="ptPendingContent" style="font-size:12px;color:#94a3b8;">Yükleniyor...</div>
+                </div>
+            </div>
+
+            <!-- Trade History -->
+            <div class="card" style="padding:16px;">
+                <div class="card-title" style="margin-bottom:8px;">📜 İşlem Geçmişi</div>
+                <div id="ptHistoryContent" style="font-size:12px;color:#94a3b8;max-height:200px;overflow-y:auto;">Yükleniyor...</div>
+            </div>
         </div>
     </div>
 
@@ -739,6 +810,7 @@ let candleData4h = [];
 let appConfig = null;          // Sunucudan gelen yapılandırma
 let fetchRetryCount = 0;       // Hata kurtarma sayaçı
 let lastSignalData = null;     // Son sinyal (loglama için)
+let baseWeights = { trend: 30, momentum: 25, volatility: 15, volume: 15, structure: 15 }; // Varsayılan ağırlıklar
 
 // Yapılandırmayı sunucudan al
 async function loadConfig() {
@@ -750,10 +822,22 @@ async function loadConfig() {
     }
 }
 
+let currentSymbol = 'ZBCNUSDT';
+
+function switchSymbol(symbol) {
+    currentSymbol = symbol;
+    // Update UI labels
+    document.querySelector('.logo-text span').textContent = (symbol === 'ZBCNUSDT' ? 'Zebec Network' : 'Prosper') + ' / USDT • Gerçek Zamanlı';
+    document.querySelector('.price-label').textContent = (symbol === 'ZBCNUSDT' ? 'ZBCN' : 'PROS') + ' / USDT • Anlık Fiyat';
+    document.getElementById('dataSource').textContent = 'Proxy Sunucu (' + symbol + ')';
+    // Clear and reload
+    forceRefresh();
+}
+
 async function fetchAllData() {
     try {
-        // Tek bir istekte tüm verileri al (proxy üzerinden)
-        const res = await fetch('/api/all');
+        // Çoklu sembol desteği ile veri çek
+        const res = await fetch('/api/all?symbol=' + currentSymbol);
         if (!res.ok) throw new Error('Proxy sunucuya bağlanılamadı (HTTP ' + res.status + ')');
         
         const json = await res.json();
@@ -788,10 +872,15 @@ async function fetchAllData() {
             candleData4h = parseKuCoinCandles(json.candles4h.data);
         }
         
-        // CoinGecko verileri
-        if (json.coingecko && json.coingecko['zebec-network']) {
-            const mc = json.coingecko['zebec-network'].usd_market_cap;
-            document.getElementById('marketCap').textContent = '$' + formatCompact(mc);
+        // CoinGecko verileri (dinamik sembol)
+        if (json.coingecko) {
+            const cgKeys = Object.keys(json.coingecko);
+            if (cgKeys.length > 0) {
+                const cgData = json.coingecko[cgKeys[0]];
+                if (cgData && cgData.usd_market_cap) {
+                    document.getElementById('marketCap').textContent = '$' + formatCompact(cgData.usd_market_cap);
+                }
+            }
         }
         
         // Son güncelleme zamanı
@@ -1177,6 +1266,58 @@ function analyzeTimeframe(candles, tfName) {
 // ========== PİYASA REJİMİ TESPİTİ (Regime Detection) ==========
 // Piyasanın hangi rejimde olduğunu belirler: Trend-Up, Trend-Down, Range, Chop
 // Kaynak: procxin/btc-swing-system, Harvest, TrendRider
+// ========== SİNYAL STATE MACHINE ==========
+// FIX: Eksik state makinesi eklendi - false signal reduction
+// States: LONG, SHORT, WAIT, INVALID
+// Sadece güçlü confluence varsa LONG/SHORT, aksi halde WAIT/INVALID
+function determineSignalState(weightedScore, confidence, regime, grade, adxVal, bbBandwidth, atrPct) {
+    // NO TRADE koşulları
+    const noTradeConditions = [];
+
+    // Chop rejiminde işlem yapma
+    if (regime === 'Chop') {
+        noTradeConditions.push('Chop rejimi - işlem önerilmez');
+    }
+
+    // ADX çok düşükse (trend yok)
+    if (adxVal !== null && adxVal < 15) {
+        noTradeConditions.push('ADX çok düşük (' + adxVal.toFixed(1) + ')');
+    }
+
+    // ATR çok yüksekse (aşırı volatilite)
+    if (atrPct > 8) {
+        noTradeConditions.push('Volatilite çok yüksek (' + atrPct.toFixed(1) + '%)');
+    }
+
+    // Grade NT veya C ise işlem yapma
+    if (grade === 'NT' || grade === 'C') {
+        noTradeConditions.push('Düşük grade (' + grade + ')');
+    }
+
+    // Güven çok düşükse
+    if (confidence < 40) {
+        noTradeConditions.push('Güven çok düşük (%' + confidence.toFixed(0) + ')');
+    }
+
+    if (noTradeConditions.length > 0) {
+        return { state: 'NO_TRADE', reasons: noTradeConditions };
+    }
+
+    // WAIT durumu - sinyal var ama zayıf
+    if (grade === 'B' || confidence < 60) {
+        return { state: 'WAIT', reasons: ['Sinyal zayıf, teyit bekleniyor'] };
+    }
+
+    // LONG veya SHORT
+    if (weightedScore > 0 && confidence >= 60) {
+        return { state: 'LONG', reasons: [] };
+    } else if (weightedScore < 0 && confidence >= 60) {
+        return { state: 'SHORT', reasons: [] };
+    }
+
+    return { state: 'WAIT', reasons: ['Net sinyal yok'] };
+}
+
 function detectMarketRegime(adxVal, bbBandwidth, atrPct, smaSlope, priceSlope) {
     // ADX: trend gücü (0-100)
     // BB Bandwidth: volatilite sıkışması
@@ -1440,15 +1581,11 @@ function runAnalysis() {
     
     // ---- İŞLEM NOTU (Trade Grade) ----
     const gradeEl = document.getElementById('gradeValue');
-    const gradeBadge = document.getElementById('gradeBadge');
     const gradeAdvice = document.getElementById('gradeAdvice');
     if (result1h.grade) {
         if (gradeEl) {
             gradeEl.textContent = result1h.grade.grade;
             gradeEl.style.color = result1h.grade.gradeColor;
-        }
-        if (gradeBadge) {
-            // Sınıfı badge olarak renklendir
         }
         if (gradeAdvice) {
             gradeAdvice.textContent = result1h.grade.advice;
@@ -1794,12 +1931,390 @@ async function checkServerHealth() {
     }
 }
 
+// ========== PAPER TRADING FUNCTIONS ==========
+
+let ptPanelVisible = true;
+
+function togglePaperTrading() {
+    const panel = document.getElementById('paperTradingPanel');
+    const icon = document.getElementById('ptToggleIcon');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        icon.textContent = '▼';
+    } else {
+        panel.style.display = 'none';
+        icon.textContent = '▶';
+    }
+}
+
+async function loadPaperTradingData() {
+    try {
+        // Portfolio
+        const portRes = await fetch('/api/paper-trading/portfolio');
+        if (portRes.ok) {
+            const port = await portRes.json();
+            document.getElementById('ptInitialBalance').textContent = '$' + (port.initialBalance || 10000).toLocaleString();
+            document.getElementById('ptCurrentBalance').textContent = '$' + (port.balance || 0).toLocaleString();
+            document.getElementById('ptBalance').textContent = '$' + (port.balance || 0).toLocaleString();
+            const ret = port.totalReturn || 0;
+            const retEl = document.getElementById('ptReturn');
+            retEl.textContent = (ret >= 0 ? '+' : '') + ret.toFixed(2) + '%';
+            retEl.style.color = ret >= 0 ? '#22c55e' : '#ef4444';
+            document.getElementById('ptOpenPositions').textContent = port.openPositions || 0;
+            document.getElementById('ptTotalTrades').textContent = port.totalTrades || 0;
+            document.getElementById('ptWinRate').textContent = (port.winRate || 0).toFixed(1) + '%';
+            const pnl = port.realizedPnl || 0;
+            const pnlEl = document.getElementById('ptRealizedPnl');
+            pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2);
+            pnlEl.style.color = pnl >= 0 ? '#22c55e' : '#ef4444';
+            document.getElementById('ptPendingOrders').textContent = port.pendingOrders || 0;
+            document.getElementById('ptMode').textContent = '(' + (port.mode || 'paper') + ')';
+        }
+
+        // Open Positions
+        const posRes = await fetch('/api/paper-trading/positions');
+        if (posRes.ok) {
+            const positions = await posRes.json();
+            renderPositions(positions);
+        }
+
+        // Pending Orders
+        const penRes = await fetch('/api/paper-trading/pending');
+        if (penRes.ok) {
+            const pending = await penRes.json();
+            renderPendingOrders(pending);
+        }
+
+        // Trade History
+        const histRes = await fetch('/api/paper-trading/history?limit=10');
+        if (histRes.ok) {
+            const history = await histRes.json();
+            renderTradeHistory(history);
+        }
+    } catch (e) {
+        console.warn('Paper trading verisi alınamadı:', e.message);
+    }
+}
+
+function renderPositions(positions) {
+    const el = document.getElementById('ptPositionsContent');
+    if (!positions || positions.length === 0) {
+        el.innerHTML = '<span style="color:#64748b;">Açık pozisyon yok.</span>';
+        return;
+    }
+    let html = '<table class="market-table"><thead><tr><th>Tür</th><th>Giriş</th><th>Miktar</th><th>SL</th><th>TP</th><th>İşlem</th></tr></thead><tbody>';
+    for (const p of positions) {
+        const now = Date.now();
+        const dur = p.timestamp ? Math.round((now - p.timestamp) / 60000) : '--';
+        html += '<tr>' +
+            '<td><span class="indicator-signal ' + (p.type === 'BUY' ? 'buy' : 'sell') + '">' + (p.type === 'BUY' ? 'LONG' : 'SHORT') + '</span></td>' +
+            '<td style="font-weight:600;">$' + (p.entryPrice || 0).toFixed(8) + '</td>' +
+            '<td>' + (p.quantity || 0).toFixed(2) + '</td>' +
+            '<td style="color:#ef4444;">$' + (p.stopLoss || 0).toFixed(8) + '</td>' +
+            '<td style="color:#22c55e;">$' + (p.takeProfit || 0).toFixed(8) + '</td>' +
+            '<td><button onclick="closePositionById(\'' + p.id + '\')" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.2);color:#ef4444;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Kapat</button></td>' +
+            '</tr>';
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+function renderPendingOrders(pending) {
+    const el = document.getElementById('ptPendingContent');
+    if (!pending || pending.length === 0) {
+        el.innerHTML = '<span style="color:#64748b;">Bekleyen emir yok.</span>';
+        return;
+    }
+    let html = '<table class="market-table"><thead><tr><th>Tür</th><th>Fiyat</th><th>Güven</th><th>Onay</th></tr></thead><tbody>';
+    for (const o of pending) {
+        html += '<tr>' +
+            '<td><span class="indicator-signal ' + (o.type === 'BUY' ? 'buy' : 'sell') + '">' + (o.type === 'BUY' ? 'AL' : 'SAT') + '</span></td>' +
+            '<td>$' + (o.entryPrice || 0).toFixed(8) + '</td>' +
+            '<td>' + (o.confidence || 0) + '%</td>' +
+            '<td><button onclick="approveOrderById(\'' + o.id + '\')" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.2);color:#22c55e;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px;">✅</button>' +
+            '<button onclick="rejectOrderById(\'' + o.id + '\')" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.2);color:#ef4444;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">❌</button></td>' +
+            '</tr>';
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+function renderTradeHistory(history) {
+    const el = document.getElementById('ptHistoryContent');
+    if (!history || history.length === 0) {
+        el.innerHTML = '<span style="color:#64748b;">Henüz işlem yok.</span>';
+        return;
+    }
+    let html = '<table class="market-table"><thead><tr><th>Tür</th><th>Giriş/Çıkış</th><th>PnL</th><th>Süre</th><th>Sebep</th></tr></thead><tbody>';
+    for (const t of history) {
+        const pnl = t.pnl || 0;
+        const pnlPct = t.pnlPct || 0;
+        const dur = t.duration ? Math.round(t.duration / 60000) + 'dk' : '--';
+        html += '<tr>' +
+            '<td><span class="indicator-signal ' + (t.type === 'BUY' ? 'buy' : 'sell') + '">' + (t.type === 'BUY' ? 'LONG' : 'SHORT') + '</span></td>' +
+            '<td style="font-size:11px;">$' + (t.entryPrice || 0).toFixed(8) + ' → $' + (t.exitPrice || 0).toFixed(8) + '</td>' +
+            '<td style="font-weight:600;color:' + (pnl >= 0 ? '#22c55e' : '#ef4444') + ';">' + (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2) + ' (' + (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%)</td>' +
+            '<td style="color:#64748b;font-size:11px;">' + dur + '</td>' +
+            '<td style="color:#64748b;font-size:11px;">' + (t.exitReason || 'manual') + '</td>' +
+            '</tr>';
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+async function executePaperTrade() {
+    const signal = document.getElementById('ptSignalType').value;
+    const resultEl = document.getElementById('ptTradeResult');
+    resultEl.innerHTML = '⏳ İşlem yürütülüyor...';
+    
+    try {
+        // Get current price from the dashboard data
+        const priceEl = document.getElementById('currentPrice');
+        const price = priceEl && priceEl.textContent !== '--' 
+            ? parseFloat(priceEl.textContent.replace('$', '')) 
+            : null;
+        
+        if (!price || isNaN(price)) {
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Fiyat verisi alınamadı.</span>';
+            return;
+        }
+
+        // Calculate confidence from the current signal
+        const confEl = document.getElementById('signalConfidence');
+        const confidence = confEl ? parseInt(confEl.textContent) || 50 : 50;
+
+        const res = await fetch('/api/paper-trading/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                signal: signal,
+                price: price,
+                confidence: confidence,
+                metadata: { source: 'manual', timestamp: Date.now() }
+            })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+            if (data.status === 'pending_approval') {
+                resultEl.innerHTML = '<span style="color:#eab308;">⏳ Onay bekleniyor (ID: ' + data.tradeId + ')</span>';
+            } else {
+                resultEl.innerHTML = '<span style="color:#22c55e;">✅ ' + (signal === 'BUY' ? 'ALIŞ' : 'SATIŞ') + ' emri gerçekleşti (ID: ' + data.tradeId + ')</span>';
+            }
+            loadPaperTradingData();
+        } else {
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Hata: ' + (data.error || 'Bilinmeyen hata') + '</span>';
+        }
+    } catch (e) {
+        resultEl.innerHTML = '<span style="color:#ef4444;">❌ Bağlantı hatası: ' + e.message + '</span>';
+    }
+}
+
+async function executeAutoTrade() {
+    const resultEl = document.getElementById('ptTradeResult');
+    resultEl.innerHTML = '⏳ Otomatik sinyal bekleniyor...';
+
+    try {
+        // Get current signal from the dashboard
+        const badge = document.getElementById('signalBadge');
+        const signalText = badge ? badge.textContent : 'NEUTRAL';
+        
+        if (signalText === 'NEUTRAL' || signalText === '--') {
+            resultEl.innerHTML = '<span style="color:#eab308;">⚠️ Net sinyal yok, otomatik işlem atlandı.</span>';
+            return;
+        }
+
+        const priceEl = document.getElementById('currentPrice');
+        const price = priceEl && priceEl.textContent !== '--' 
+            ? parseFloat(priceEl.textContent.replace('$', '')) 
+            : null;
+        
+        if (!price || isNaN(price)) {
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Fiyat verisi alınamadı.</span>';
+            return;
+        }
+
+        const confEl = document.getElementById('signalConfidence');
+        const confidence = confEl ? parseInt(confEl.textContent) || 50 : 50;
+
+        const signal = signalText === 'BUY' ? 'BUY' : 'SELL';
+        const res = await fetch('/api/paper-trading/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                signal: signal,
+                price: price,
+                confidence: confidence,
+                metadata: { source: 'auto_signal', timestamp: Date.now() }
+            })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+            resultEl.innerHTML = '<span style="color:#22c55e;">🤖 Otomatik ' + signal + ' emri verildi! (ID: ' + data.tradeId + ')</span>';
+            loadPaperTradingData();
+        } else {
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Otomatik işlem başarısız: ' + (data.error || 'Bilinmeyen hata') + '</span>';
+        }
+    } catch (e) {
+        resultEl.innerHTML = '<span style="color:#ef4444;">❌ Bağlantı hatası: ' + e.message + '</span>';
+    }
+}
+
+async function closePositionById(positionId) {
+    const resultEl = document.getElementById('ptRiskResult');
+    resultEl.innerHTML = '⏳ Pozisyon kapatılıyor...';
+    
+    try {
+        const priceEl = document.getElementById('currentPrice');
+        const price = priceEl && priceEl.textContent !== '--' 
+            ? parseFloat(priceEl.textContent.replace('$', '')) 
+            : null;
+        
+        if (!price || isNaN(price)) {
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Fiyat verisi alınamadı.</span>';
+            return;
+        }
+
+        const res = await fetch('/api/paper-trading/close', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                positionId: positionId,
+                currentPrice: price,
+                reason: 'manual_close'
+            })
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+            const pnlText = (data.pnl >= 0 ? '+' : '') + '$' + Math.abs(data.pnl).toFixed(2);
+            resultEl.innerHTML = '<span style="color:' + (data.pnl >= 0 ? '#22c55e' : '#ef4444') + ';">✅ Pozisyon kapatıldı. PnL: ' + pnlText + '</span>';
+            loadPaperTradingData();
+        } else {
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ ' + (data.error || 'Kapatma başarısız') + '</span>';
+        }
+    } catch (e) {
+        resultEl.innerHTML = '<span style="color:#ef4444;">❌ Bağlantı hatası: ' + e.message + '</span>';
+    }
+}
+
+async function approveOrderById(tradeId) {
+    try {
+        const res = await fetch('/api/paper-trading/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tradeId: tradeId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('ptRiskResult').innerHTML = '<span style="color:#22c55e;">✅ Emir onaylandı!</span>';
+            loadPaperTradingData();
+        }
+    } catch (e) {
+        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + e.message + '</span>';
+    }
+}
+
+async function rejectOrderById(tradeId) {
+    try {
+        const res = await fetch('/api/paper-trading/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tradeId: tradeId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('ptRiskResult').innerHTML = '<span style="color:#eab308;">❌ Emir reddedildi.</span>';
+            loadPaperTradingData();
+        }
+    } catch (e) {
+        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + e.message + '</span>';
+    }
+}
+
+async function checkStopLossTakeProfit() {
+    const resultEl = document.getElementById('ptRiskResult');
+    resultEl.innerHTML = '⏳ SL/TP kontrol ediliyor...';
+    
+    try {
+        const priceEl = document.getElementById('currentPrice');
+        const price = priceEl && priceEl.textContent !== '--' 
+            ? parseFloat(priceEl.textContent.replace('$', '')) 
+            : null;
+        
+        if (!price || isNaN(price)) {
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Fiyat verisi alınamadı.</span>';
+            return;
+        }
+
+        const res = await fetch('/api/paper-trading/check-sl-tp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentPrice: price })
+        });
+        
+        const results = await res.json();
+        if (results.length > 0) {
+            let html = '';
+            for (const r of results) {
+                html += '<span style="color:#eab308;">🛑 ' + r.reason + ' - PnL: ' + (r.result.pnl >= 0 ? '+' : '') + '$' + Math.abs(r.result.pnl).toFixed(2) + '</span><br>';
+            }
+            resultEl.innerHTML = html;
+            loadPaperTradingData();
+        } else {
+            resultEl.innerHTML = '<span style="color:#22c55e;">✅ SL/TP tetiklenmedi.</span>';
+        }
+    } catch (e) {
+        resultEl.innerHTML = '<span style="color:#ef4444;">❌ ' + e.message + '</span>';
+    }
+}
+
+async function setModePaper() {
+    try {
+        const res = await fetch('/api/paper-trading/set-mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'paper' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('ptMode').textContent = '(paper)';
+            document.getElementById('ptRiskResult').innerHTML = '<span style="color:#22c55e;">✅ Paper mod aktif.</span>';
+        }
+    } catch (e) {
+        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + e.message + '</span>';
+    }
+}
+
+async function resetPaperTrading() {
+    if (!confirm('Tüm paper trading verilerini sıfırlamak istediğinize emin misiniz?')) return;
+    
+    try {
+        const res = await fetch('/api/paper-trading/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('ptRiskResult').innerHTML = '<span style="color:#eab308;">🔄 Paper trading sıfırlandı.</span>';
+            loadPaperTradingData();
+        }
+    } catch (e) {
+        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + e.message + '</span>';
+    }
+}
+
+// Initialize paper trading data loading alongside existing intervals
+setInterval(loadPaperTradingData, 15000);
+
 // Periyodik sağlık kontrolü (30 sn'de bir)
 setInterval(checkServerHealth, 30000);
 
 window.addEventListener('load', () => {
     startAutoRefresh();
     loadSignalHistory();
+    loadPaperTradingData();  // Paper trading verilerini ilk yüklemede al
     // Sinyal geçmişini her 60 sn'de bir güncelle
     setInterval(loadSignalHistory, 60000);
 });

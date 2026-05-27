@@ -1,0 +1,67 @@
+{
+    "_schema": "ZBCNUSDT Signal Format v1.0",
+    "_description": "Sinyal verisi JSON formatı - hem REST API hem de dosya kaydı için",
+    "_required_fields": ["signal", "confidence", "weightedScore", "timestamp"],
+    "_example": {
+        "signal": "BUY",
+        "confidence": 73,
+        "weightedScore": 18.5,
+        "breakdown": {
+            "trend": 45,
+            "momentum": 20,
+            "volatility": -5,
+            "volume": 10,
+            "structure": 15
+        },
+        "tfAlignment": "Kısmi Uyum (AL ağırlıklı)",
+        "regime": "Trend-Up",
+        "grade": "A",
+        "gradeColor": "#22c55e",
+        "price": 0.0030486,
+        "multiTf": {
+            "1h": {"signal": "BUY", "confidence": 65, "score": 18.5},
+            "15m": {"signal": "NEUTRAL", "confidence": 39, "score": 11.15},
+            "4h": {"signal": "NEUTRAL", "confidence": 42, "score": 5.6}
+        },
+        "state": "LONG",
+        "symbol": "ZBCNUSDT",
+        "timestamp": 1779881411913,
+        "serverTime": "2026-05-27T08:06:11.913Z"
+    },
+    "signal_enum": ["BUY", "SELL", "NEUTRAL"],
+    "state_enum": ["LONG", "SHORT", "WAIT", "NO_TRADE"],
+    "regime_enum": ["Trend-Up", "Trend-Down", "Range", "Chop", "Unknown"],
+    "grade_enum": ["S", "A", "B", "C", "NT"],
+    "tfAlignment_enum": [
+        "Tam Uyum (AL)",
+        "Tam Uyum (SAT)",
+        "Kısmi Uyum (AL ağırlıklı)",
+        "Kısmi Uyum (SAT ağırlıklı)",
+        "Karışık (bekle)",
+        "Tek TF",
+        "Çakışma",
+        "Yetersiz Veri"
+    ],
+    "paper_trading_execute": {
+        "_required": ["signal", "price", "confidence"],
+        "_example": {
+            "signal": "BUY",
+            "price": 0.00305,
+            "confidence": 73,
+            "symbol": "ZBCNUSDT",
+            "metadata": {"source": "manual"}
+        },
+        "_response_example": {
+            "success": true,
+            "status": "executed",
+            "tradeId": "TRD_1779881411913_x7f8k3m2n",
+            "symbol": "ZBCNUSDT"
+        },
+        "_pending_response": {
+            "success": true,
+            "status": "pending_approval",
+            "message": "Trade awaiting manual approval",
+            "tradeId": "TRD_1779881411913_x7f8k3m2n"
+        }
+    }
+}

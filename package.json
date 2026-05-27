@@ -1,7 +1,7 @@
 {
   "name": "zbcnusdt",
-  "version": "2.1.0",
-  "description": "ZBCNUSDT Canlı Sinyal Terminali — Multi-Timeframe Confluence Sistemi, 10+ Teknik İndikatör",
+  "version": "2.2.0",
+  "description": "ZBCNUSDT Canlı Sinyal Terminali — Multi-Timeframe Confluence Sistemi, 15+ Teknik İndikatör",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -23,7 +23,9 @@
     "technical-analysis",
     "dashboard",
     "real-time",
-    "multi-timeframe"
+    "multi-timeframe",
+    "backtest",
+    "websocket"
   ],
   "author": "SERDOBABA",
   "license": "MIT",
@@ -37,7 +39,9 @@
   },
   "homepage": "https://github.com/SERDOBABA/ZBCNUSDT#readme",
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.1.5",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
