@@ -170,6 +170,28 @@
 - PVP: Point of Control (en yüksek hacim)
 - Value Area: Toplam hacmin %70'i
 
+### 18. Keltner Channels
+**Formül:**
+- Middle Line: EMA(Close, 20)
+- Upper Band: EMA + (Multiplier * ATR)
+- Lower Band: EMA - (Multiplier * ATR)
+
+**Parametreler:**
+- EMA Period: 20
+- ATR Period: 10
+- Multiplier: 2.0
+
+**Kullanım:**
+- Price > Upper → Aşırı alım (SAT)
+- Price < Lower → Aşırı satım (AL)
+- Price > Middle → Bullish
+- Price < Middle → Bearish
+
+**Özellikler:**
+- Bollinger Bands'a benzer ama ATR kullanır
+- Daha az false signal verir
+- Trend takip eden indikatör
+
 ## 📈 Sinyal Skorlama
 
 ### Kategori Ağırlıkları
