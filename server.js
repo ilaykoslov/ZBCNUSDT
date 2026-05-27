@@ -6,11 +6,20 @@ const http = require('http');
 const config = require('./config');
 const { PaperTradingEngine, RiskManager, DataValidator } = require('./core');
 const { retryManager } = require('./utils/retry');
+const { sendTelegramMessage, sendDiscordMessage } = require('./utils/webhook');
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || config.server.port;
 if (process.env.API_TIMEOUT) config.api.timeout = parseInt(process.env.API_TIMEOUT);
 if (process.env.REFRESH_MS) config.refresh.dashboardMs = parseInt(process.env.REFRESH_MS);
+
+// Load environment variables for alerts
+if (process.env.ALERTS_ENABLED) config.alerts.enabled = process.env.ALERTS_ENABLED === 'true';
+if (process.env.TELEGRAM_ENABLED) config.alerts.telegram.enabled = process.env.TELEGRAM_ENABLED === 'true';
+if (process.env.TELEGRAM_TOKEN) config.alerts.telegram.token = process.env.TELEGRAM_TOKEN;
+if (process.env.TELEGRAM_CHAT_ID) config.alerts.telegram.chatId = process.env.TELEGRAM_CHAT_ID;
+if (process.env.DISCORD_ENABLED) config.alerts.discord.enabled = process.env.DISCORD_ENABLED === 'true';
+if (process.env.DISCORD_WEBHOOK_URL) config.alerts.discord.webhookUrl = process.env.DISCORD_WEBHOOK_URL;
 
 // ========================================
 // FIX: trust proxy - rate limiting için doğru IP
@@ -52,6 +61,41 @@ for (const sym of activeSymbols) {
     }
 }
 
+async function triggerAlerts(symbol, signalEntry) {
+    if (!config.alerts.enabled) return;
+
+    const message = `🚨 <b>YENİ SİNYAL: ${symbol}</b> 🚨\n\n` +
+        `📊 <b>Sinyal</b>: ${signalEntry.signal}\n` +
+        `🎯 <b>Fiyat</b>: $${signalEntry.price}\n` +
+        `📈 <b>Güven Skoru</b>: %${signalEntry.confidence}\n` +
+        `📉 <b>Ağırlıklı Skor</b>: ${signalEntry.weightedScore}\n` +
+        `🌡️ <b>Piyasa Rejimi</b>: ${signalEntry.regime}\n` +
+        `🏷️ <b>İşlem Notu</b>: ${signalEntry.grade}\n` +
+        `⏱️ <b>Zaman Uyum</b>: ${signalEntry.tfAlignment}\n\n` +
+        `🤖 Generated with Pochi | ZBCNUSDT Signal Terminal`;
+
+    // Telegram
+    if (config.alerts.telegram.enabled && config.alerts.telegram.token && config.alerts.telegram.chatId) {
+        try {
+            await sendTelegramMessage(config.alerts.telegram.token, config.alerts.telegram.chatId, message);
+            console.log(`[ALERT] Telegram bildirimi gönderildi: ${symbol} - ${signalEntry.signal}`);
+        } catch (e) {
+            console.error('[ALERT] Telegram bildirim hatası:', e.message);
+        }
+    }
+
+    // Discord
+    if (config.alerts.discord.enabled && config.alerts.discord.webhookUrl) {
+        try {
+            const cleanMessage = message.replace(/<[^>]*>/g, ''); // Strip HTML for Discord
+            await sendDiscordMessage(config.alerts.discord.webhookUrl, cleanMessage);
+            console.log(`[ALERT] Discord bildirimi gönderildi: ${symbol} - ${signalEntry.signal}`);
+        } catch (e) {
+            console.error('[ALERT] Discord bildirim hatası:', e.message);
+        }
+    }
+}
+
 function appendSignal(symbol, signalEntry) {
     if (!config.signalHistory.enabled) return;
     const hist = signalHistories[symbol];
@@ -66,6 +110,9 @@ function appendSignal(symbol, signalEntry) {
     try {
         if (!fs.existsSync(SIGNAL_HISTORY_DIR)) fs.mkdirSync(SIGNAL_HISTORY_DIR, { recursive: true });
         fs.writeFileSync(path.join(SIGNAL_HISTORY_DIR, `signals_${symbol}.json`), JSON.stringify(signalHistories[symbol], null, 2));
+        
+        // Sinyal başarıyla kaydedildiğinde alarm tetikle
+        triggerAlerts(symbol, signalEntry);
     } catch (e) {
         console.error(`${symbol} sinyal kaydı yazılamadı:`, e.message);
     }
