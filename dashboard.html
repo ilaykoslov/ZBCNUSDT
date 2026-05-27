@@ -313,6 +313,11 @@
             <div class="indicator-row"><span class="indicator-name">+DI (Yükseliş)</span><span class="indicator-value" id="pdiValue" style="color:#22c55e;">--</span></div>
             <div class="indicator-row"><span class="indicator-name">-DI (Düşüş)</span><span class="indicator-value" id="mdiValue" style="color:#ef4444;">--</span></div>
             <div class="indicator-row"><span class="indicator-name">Durum</span><span class="indicator-signal" id="adxStatus">--</span></div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(148,163,184,0.08);">
+                <div class="indicator-row"><span class="indicator-name">🏷️ Piyasa Rejimi</span><span class="indicator-value" id="regimeValue" style="font-size:12px;font-weight:700;">--</span></div>
+                <div class="indicator-row"><span class="indicator-name">🎯 İşlem Notu</span><span class="indicator-value" id="gradeValue" style="font-size:16px;font-weight:900;">--</span></div>
+                <div class="indicator-row" style="border-bottom:none;"><span class="indicator-name">💡 Öneri</span><span class="indicator-value" id="gradeAdvice" style="font-size:11px;font-weight:600;">--</span></div>
+            </div>
         </div>
         <div class="card">
             <div class="card-title">🔄 StochRSI & Divergence</div>
@@ -1098,11 +1103,14 @@ function analyzeTimeframe(candles, tfName) {
     
     const structureFinal = Math.max(-100, Math.min(100, structureScore));
     
-    // ---- AĞIRLIKLI CONFLUENCE SKORU ----
-    // Config'den ağırlıkları al, yoksa varsayılanları kullan
-    const w = (appConfig && appConfig.categoryWeights)
-        ? appConfig.categoryWeights
+    // ---- PİYASA REJİMİ TESPİTİ ----
+    const regime = detectMarketRegime(adx, bbBandwidth, atrPct, sma7Slope, calculateSlope(closes, 5));
+    
+    // ---- REJİM BAZLI DİNAMİK AĞIRLIKLANDIRMA ----
+    const baseWeights = (appConfig && appConfig.categoryWeights)
+        ? { ...appConfig.categoryWeights }
         : { trend: 30, momentum: 25, volatility: 15, volume: 15, structure: 15 };
+    const w = getRegimeWeights(regime, baseWeights);
     
     const weightedScore = (
         (trendFinal * w.trend) +
@@ -1129,11 +1137,20 @@ function analyzeTimeframe(candles, tfName) {
         confidence = conf ? Math.max(conf.minConfidence, conf.baseNeutral - Math.abs(weightedScore) * conf.perPointScore) : Math.max(30, 45 - Math.abs(weightedScore) * 0.5);
     }
     
+    // ---- İŞLEM NOTU (Trade Grade) ----
+    const grade = calculateTradeGrade(weightedScore, confidence, regime, adx);
+    
+    // ---- GELİŞMİŞ PİVOT SEVİYELERİ ----
+    const pivots = calculatePivotLevels(candles);
+    
     return {
         tf: tfName,
         signal,
         confidence: Math.max(5, Math.min(95, confidence)),
         weightedScore,
+        regime,
+        grade,
+        pivots,
         details: {
             trend: { score: trendFinal, detail: trendDetails.join(', ') },
             momentum: { score: momentumFinal, detail: momentumDetails.join(', ') },
@@ -1152,8 +1169,124 @@ function analyzeTimeframe(candles, tfName) {
             support: sr.support,
             resistance: sr.resistance,
             sma7Slope, sma25Slope
-        }
+        },
+        weights: w  // Hangi ağırlıkların kullanıldığını ilet
     };
+}
+
+// ========== PİYASA REJİMİ TESPİTİ (Regime Detection) ==========
+// Piyasanın hangi rejimde olduğunu belirler: Trend-Up, Trend-Down, Range, Chop
+// Kaynak: procxin/btc-swing-system, Harvest, TrendRider
+function detectMarketRegime(adxVal, bbBandwidth, atrPct, smaSlope, priceSlope) {
+    // ADX: trend gücü (0-100)
+    // BB Bandwidth: volatilite sıkışması
+    // ATR%: volatilite seviyesi
+    // SMA Slope: trend yönü
+    // Price Slope: fiyat momentumu
+    
+    if (adxVal === null || bbBandwidth === null) return 'Unknown';
+    
+    const strongTrend = adxVal >= 25;
+    const moderateTrend = adxVal >= 20;
+    const bbSqueeze = bbBandwidth < 0.03;  // Dar bant sıkışması
+    const lowVol = atrPct < 2;              // Düşük volatilite
+    const highVol = atrPct > 5;             // Yüksek volatilite
+    
+    if (strongTrend && smaSlope > 0.05) return 'Trend-Up';
+    if (strongTrend && smaSlope < -0.05) return 'Trend-Down';
+    if (!moderateTrend && (bbSqueeze || lowVol)) return 'Chop';  // Yatay sıkışma
+    if (!moderateTrend && !bbSqueeze) return 'Range';
+    if (moderateTrend && !strongTrend) return 'Range';
+    
+    return 'Range';
+}
+
+// ========== İŞLEM NOTU (Trade Grading) ==========
+// 5-seviyeli not sistemi: S, A, B, C, NT (No Trade)
+// Kaynak: BTC Multi-Confluence Swing System
+function calculateTradeGrade(weightedScore, confidence, regime, adxVal) {
+    const absScore = Math.abs(weightedScore);
+    const absConf = Math.abs(confidence);
+    
+    let grade, gradeColor, gradeLabel;
+    
+    // Sınıf belirleme
+    if (absScore >= 25 && absConf >= 85 && (regime === 'Trend-Up' || regime === 'Trend-Down')) {
+        grade = 'S'; gradeColor = '#a855f7'; gradeLabel = '⚡ SÜPER (Yüksek Güven)';
+    } else if (absScore >= 18 && absConf >= 70) {
+        grade = 'A'; gradeColor = '#22c55e'; gradeLabel = 'A (Güçlü Sinyal)';
+    } else if (absScore >= 12 && absConf >= 55) {
+        grade = 'B'; gradeColor = '#06b6d4'; gradeLabel = 'B (Orta Sinyal)';
+    } else if (absScore >= 6 && absConf >= 40) {
+        grade = 'C'; gradeColor = '#eab308'; gradeLabel = 'C (Zayıf Sinyal)';
+    } else {
+        grade = 'NT'; gradeColor = '#64748b'; gradeLabel = 'NT (İşlem Yok)';
+    }
+    
+    // Risk düzeltmesi: Chop rejiminde notu 1 seviye düşür
+    if (regime === 'Chop' && grade === 'A') { grade = 'B'; gradeLabel = 'B (Chop-Orta)'; gradeColor = '#06b6d4'; }
+    else if (regime === 'Chop' && grade === 'S') { grade = 'A'; gradeLabel = 'A (Chop-Güçlü)'; gradeColor = '#22c55e'; }
+    
+    // Öneri metni
+    let advice = '';
+    if (weightedScore > 0) {
+        if (grade === 'S') advice = '🔴 GÜÇLÜ AL - Trend ve momentum uyumlu.';
+        else if (grade === 'A') advice = '🟢 AL - Confluence olumlu.';
+        else if (grade === 'B') advice = '🔵 HAFİF AL - Teyit bekle.';
+        else if (grade === 'C') advice = '🟡 DİKKAT - Zayıf sinyal, risk yüksek.';
+        else advice = '⚪ BEKLE - Net sinyal yok.';
+    } else if (weightedScore < 0) {
+        if (grade === 'S') advice = '🔴 GÜÇLÜ SAT - Trend ve momentum uyumlu.';
+        else if (grade === 'A') advice = '🔴 SAT - Confluence olumsuz.';
+        else if (grade === 'B') advice = '🔵 HAFİF SAT - Teyit bekle.';
+        else if (grade === 'C') advice = '🟡 DİKKAT - Zayıf sinyal, risk yüksek.';
+        else advice = '⚪ BEKLE - Net sinyal yok.';
+    } else {
+        advice = '⚪ NÖTR - BEKLE. Confluence karışık.';
+    }
+    
+    return { grade, gradeColor, gradeLabel, advice };
+}
+
+// ========== REJİM BAZLI DİNAMİK AĞIRLIKLANDIRMA ==========
+function getRegimeWeights(regime, baseWeights) {
+    const w = { ...baseWeights };
+    
+    if (regime === 'Trend-Up' || regime === 'Trend-Down') {
+        // Trend rejiminde: Trend + Momentum ağırlığı artar
+        w.trend = Math.min(45, w.trend + 10);
+        w.momentum = Math.min(30, w.momentum + 5);
+        w.volatility = Math.max(5, w.volatility - 5);
+        w.structure = Math.max(10, w.structure - 3);
+    } else if (regime === 'Range' || regime === 'Chop') {
+        // Yatay rejimde: Volatilite + Yapı ağırlığı artar (mean-reversion)
+        w.volatility = Math.min(25, w.volatility + 10);
+        w.structure = Math.min(25, w.structure + 5);
+        w.trend = Math.max(15, w.trend - 10);
+        w.momentum = Math.max(20, w.momentum - 5);
+    }
+    
+    return w;
+}
+
+// ========== GELİŞMİŞ DESTEK/DİRENÇ (Pivot Tabanlı) ==========
+function calculatePivotLevels(candles) {
+    if (!candles || candles.length < 20) return { pivotHigh: null, pivotLow: null, pp: null, r1: null, r2: null, s1: null, s2: null };
+    
+    const last = candles[candles.length - 1];
+    const high = last.high;
+    const low = last.low;
+    const close = last.close;
+    const open = last.open;
+    
+    // Standart pivot noktaları
+    const pp = (high + low + close) / 3;
+    const r1 = 2 * pp - low;
+    const r2 = pp + (high - low);
+    const s1 = 2 * pp - high;
+    const s2 = pp - (high - low);
+    
+    return { pivotHigh: high, pivotLow: low, pp, r1, r2, s1, s2 };
 }
 
 function runAnalysis() {
@@ -1289,6 +1422,40 @@ function runAnalysis() {
     document.getElementById('adxStatus').textContent = adxStatus;
     document.getElementById('adxStatus').className = 'indicator-signal ' + adxClass;
     
+    // ---- PİYASA REJİMİ (Regime Detection) ----
+    const regimeEl = document.getElementById('regimeValue');
+    const regimeName = result1h.regime || 'Unknown';
+    const regimeMap = {
+        'Trend-Up': { label: '📈 YÜKSELEN TREND', color: '#22c55e' },
+        'Trend-Down': { label: '📉 DÜŞEN TREND', color: '#ef4444' },
+        'Range': { label: '↔️ YATAY (Range)', color: '#eab308' },
+        'Chop': { label: '🌀 KARIŞIK (Chop)', color: '#f97316' },
+        'Unknown': { label: '❓ Belirlenemiyor', color: '#64748b' }
+    };
+    const regimeInfo = regimeMap[regimeName] || regimeMap['Unknown'];
+    if (regimeEl) {
+        regimeEl.textContent = regimeInfo.label;
+        regimeEl.style.color = regimeInfo.color;
+    }
+    
+    // ---- İŞLEM NOTU (Trade Grade) ----
+    const gradeEl = document.getElementById('gradeValue');
+    const gradeBadge = document.getElementById('gradeBadge');
+    const gradeAdvice = document.getElementById('gradeAdvice');
+    if (result1h.grade) {
+        if (gradeEl) {
+            gradeEl.textContent = result1h.grade.grade;
+            gradeEl.style.color = result1h.grade.gradeColor;
+        }
+        if (gradeBadge) {
+            // Sınıfı badge olarak renklendir
+        }
+        if (gradeAdvice) {
+            gradeAdvice.textContent = result1h.grade.advice;
+            gradeAdvice.style.color = result1h.grade.gradeColor;
+        }
+    }
+    
     // StochRSI
     document.getElementById('stochK').textContent = ind.stochK !== null ? ind.stochK.toFixed(1) : '--';
     document.getElementById('stochD').textContent = ind.stochD !== null ? ind.stochD.toFixed(1) : '--';
@@ -1357,27 +1524,40 @@ function runAnalysis() {
         return `${icon} ${name}: ${pct.toFixed(0)}% (${s.toFixed(0)}p) — ${detail}`;
     };
     
+    const pivotInfo = (result1h.pivots && result1h.pivots.pp != null)
+        ? `PP: $${formatNumber(result1h.pivots.pp)} | R1: $${formatNumber(result1h.pivots.r1)} | S1: $${formatNumber(result1h.pivots.s1)}`
+        : '—';
+    
+    // Rejim bazlı ağırlıkları göster
+    const wUsed = result1h.weights || baseWeights;
+    
     document.getElementById('analysisDetail').innerHTML = `
         <strong>Sinyal: ${finalSignal} (${signalStrength})</strong> &bull; Güven: ${confidence.toFixed(0)}%<br>
-        <strong>Timeframe Uyumu:</strong> ${tfAlignment}<br><br>
-        <strong>Kategori Skorları:</strong><br>
-        ${catScore('Trend', result1h.details.trend.score, 30)}<br>
-        ${catScore('Momentum', result1h.details.momentum.score, 25)}<br>
-        ${catScore('Volatilite', result1h.details.volatility.score, 15)}<br>
-        ${catScore('Hacim', result1h.details.volume.score, 15)}<br>
-        ${catScore('Yapı', result1h.details.structure.score, 15)}<br><br>
+        <strong>Timeframe Uyumu:</strong> ${tfAlignment}<br>
+        <strong>Piyasa Rejimi:</strong> <span style="color:${regimeInfo.color}">${regimeInfo.label}</span><br>
+        <strong>İşlem Notu:</strong> <span style="color:${result1h.grade.gradeColor};font-weight:800;">${result1h.grade.grade} - ${result1h.grade.advice}</span><br><br>
+        <strong>Kategori Skorları (Dinamik Ağırlıklar):</strong><br>
+        ${catScore('Trend', result1h.details.trend.score, wUsed.trend)} (${wUsed.trend}%)<br>
+        ${catScore('Momentum', result1h.details.momentum.score, wUsed.momentum)} (${wUsed.momentum}%)<br>
+        ${catScore('Volatilite', result1h.details.volatility.score, wUsed.volatility)} (${wUsed.volatility}%)<br>
+        ${catScore('Hacim', result1h.details.volume.score, wUsed.volume)} (${wUsed.volume}%)<br>
+        ${catScore('Yapı', result1h.details.structure.score, wUsed.structure)} (${wUsed.structure}%)<br><br>
         <strong>📊 RSI (14):</strong> ${rsiText}<br>
         <strong>📈 MACD:</strong> ${macdText}<br>
         <strong>📉 ADX:</strong> ${ind.adx !== null ? ind.adx.toFixed(1) : '--'} (${adxStatus})<br>
         <strong>🔵 StochRSI:</strong> ${ind.stochK !== null ? ind.stochK.toFixed(1) : '--'}<br>
         <strong>🟣 Divergence:</strong> ${ind.divergence !== 'none' ? ind.divergence.toUpperCase() : 'Yok'}<br><br>
+        <strong>📐 Pivot Noktaları:</strong> ${pivotInfo}<br>
         <strong>Destek:</strong> ${ind.support.length > 0 ? ind.support.map(s => '$' + formatNumber(s)).join(', ') : '—'}<br>
         <strong>Direnç:</strong> ${ind.resistance.length > 0 ? ind.resistance.map(r => '$' + formatNumber(r)).join(', ') : '—'}<br><br>
         <strong>Multi-TF:</strong> ${activeResults.map(r => r.tf + '=' + r.signal + '(' + r.confidence.toFixed(0) + '%)').join(', ')}<br><br>
-        <span style="color:#64748b;font-size:11px;">⚠️ Yatırım tavsiyesi değildir. Confluence scoring sistemi ile 10+ indikatör değerlendirilir.</span>
+        <span style="color:#64748b;font-size:11px;">⚠️ Yatırım tavsiyesi değildir. Rejim bazlı dinamik ağırlıklandırma ile ${Object.keys(wUsed).length} kategori değerlendirilir.</span>
     `;
     
     // ---- Kriter Tablosu ----
+    const gradeSignal = result1h.grade ? (result1h.grade.grade === 'S' || result1h.grade.grade === 'A' ? (finalSignal === 'BUY' ? 'AL' : 'SAT') : 'Nötr') : 'Nötr';
+    const regimeSignal = regimeName === 'Trend-Up' ? 'AL' : regimeName === 'Trend-Down' ? 'SAT' : 'Nötr';
+    
     const criteriaData = [
         { name: 'RSI (14)', value: rsiText, signal: ind.rsi !== null ? (ind.rsi > 70 ? 'SAT' : ind.rsi < 30 ? 'AL' : 'Nötr') : '--' },
         { name: 'MACD', value: macdText, signal: ind.macdV !== null ? (ind.macdV > ind.signalV ? 'AL' : 'SAT') : '--' },
@@ -1388,6 +1568,8 @@ function runAnalysis() {
         { name: 'Fiyat > SMA 7', value: (vsSma7 >= 0 ? '+' : '') + vsSma7.toFixed(2) + '%', signal: currentPrice > ind.sma7 ? 'AL' : 'SAT' },
         { name: 'Fiyat > SMA 25', value: '$' + formatNumber(ind.sma25), signal: currentPrice > ind.sma25 ? 'AL' : 'SAT' },
         { name: 'OBV Trend', value: ind.obvSlope !== 0 ? (ind.obvSlope > 0 ? 'Yükselen' : 'Düşen') : '--', signal: ind.obvSlope > 0 ? 'AL' : ind.obvSlope < 0 ? 'SAT' : 'Nötr' },
+        { name: 'Piyasa Rejimi', value: regimeInfo.label, signal: regimeSignal },
+        { name: 'İşlem Notu', value: result1h.grade ? result1h.grade.grade + ' - ' + result1h.grade.advice : 'NT', signal: gradeSignal },
         { name: 'Confluence', value: sentimentVal.toFixed(0) + '% AL', signal: sentimentVal >= 60 ? 'AL' : sentimentVal <= 40 ? 'SAT' : 'Nötr' },
         { name: 'TF Uyumu', value: tfAlignment, signal: buyCount === activeResults.length ? 'AL' : sellCount === activeResults.length ? 'SAT' : 'Nötr' },
     ];
@@ -1422,6 +1604,8 @@ function runAnalysis() {
             structure: result1h.details.structure.score
         },
         tfAlignment: tfAlignment,
+        regime: result1h.regime || 'Unknown',
+        grade: result1h.grade ? result1h.grade.grade : 'NT',
         price: currentPrice,
         multiTf: Object.fromEntries(activeResults.map(r => [r.tf, { signal: r.signal, confidence: r.confidence, score: r.weightedScore }]))
     };

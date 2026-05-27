@@ -138,13 +138,15 @@ app.post('/api/log-signal', (req, res) => {
             return res.status(400).json({ error: 'Geçersiz sinyal verisi' });
         }
         // FIX: Sadece gerekli alanları al, client internal alanlarını (_loggedAt vb.) atla
-        const { signal: sig, confidence, weightedScore, breakdown, tfAlignment, price, multiTf } = signal;
+        const { signal: sig, confidence, weightedScore, breakdown, tfAlignment, regime, grade, price, multiTf } = signal;
         appendSignal({
             signal: sig,
             confidence: confidence,
             weightedScore: weightedScore,
             breakdown: breakdown || {},
             tfAlignment: tfAlignment || 'unknown',
+            regime: regime || 'Unknown',
+            grade: grade || 'NT',
             price: price || null,
             multiTf: multiTf || {}
         });
