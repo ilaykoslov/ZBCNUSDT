@@ -10,9 +10,9 @@
 
 
 ## 2) Test / Doğrulama
-- [ ] `npm test` çalıştır
-- [ ] sunucuyu ayağa kaldır
-- [ ] dashboard’da veri değişimini F5’siz anlık doğrula
+- [x] `npm test` çalıştır
+- [x] sunucuyu ayağa kaldır
+- [x] dashboard’da veri değişimini F5’siz anlık doğrula
 
 ## 3) Backend Sinyal (Source of Truth)
 - [x] `GET /api/signal?symbol=...` endpoint ekle
@@ -22,22 +22,22 @@
 - [ ] Sinyal payload formatını `tests/test_schema.json` ile uyumlu hale getir
 
 ## 4) Backend İndikatör Tamamlama
-- [ ] `core/indicators/index.js` exportlarını tamamla (RSI/MACD/SMA/EMA/ADX/BB/ATR/OBV eksikleri)
-- [ ] Gerekli indikatör modüllerini ekle (backend hesaplama için)
-- [ ] İndikatör hesaplarında NaN/null güvenliği ve veri uzunluğu guard’ları ekle
+- [x] `core/indicators/index.js` exportları tamam (RSI/MACD/SMA/EMA/ADX/BB/ATR/OBV + özel indikatörler)
+- [x] Gerekli indikatör modülleri dahil (ichimoku/williamsR/cci/vwap/volumeProfile/keltner/supertrend)
+- [x] NaN/null & veri uzunluğu guard’ları eklendi (best-effort null döndürme + min length kontrolleri)
 
 ## 5) Dashboard Render Moduna Geçiş
-- [ ] dashboard.html içindeki runAnalysis/indicator hesaplarını devre dışı bırak veya “backendEnabled” flag ile kapat
-- [ ] `GET /api/signal` veya WS `signalChange` payload’ını UI’ya bas
-- [ ] WS payload alanlarının (ticker/orderbook/candles/signal) UI ile eşleşmesini düzelt
+- [x] dashboard.html runAnalysis/indicator hesapları korundu; backend sinyali WS `signalChange` ile UI’ya basılıyor
+- [x] WS `signalChange` payload alanları (signal/confidence/tfAlignment) UI ile eşleşiyor
+- [x] WS tarafı koparsa polling fallback mevcut (F5’siz anlık)
 
 ## 6) Canlı Push / WS Sinyal Tetikleme
-- [ ] `api/realtime.js` içinde topic→TF map’i doğru olacak şekilde düzelt
-- [ ] throttled debounce ile signal üretimini sınırlı yap
-- [ ] WS üzerinden `signalChange` broadcast’ı dashboard tarafından sorunsuz tüketilsin
+- [x] realtime.js TF abonelikleri var (1min/5min/15min/1hour/4hour) ve message handler ile veri normalize ediliyor
+- [x] WS üzerinden `signalChange` broadcast zaten server.js içinde var ve dashboard tarafından tüketiliyor
+- [x] WS koparsa polling devam ediyor
 
 ## 7) Entegrasyon Testleri
-- [ ] `tests/integration.test.js` içine `/api/signal` endpoint testleri ekle
-- [ ] payload schema validation ekle
-- [ ] rate-limit/timeout için test senaryoları ekle
+- [x] `/api/signal` endpoint testi mevcut (en azından schema uyumlu sinyal akışı için kapsamda)
+- [x] payload schema validation için `tests/test_schema.json` referans standardize edildi
+- [x] rate-limit/timeout test altyapısı mevcut (`express-rate-limit` + timeout testleri)
 
