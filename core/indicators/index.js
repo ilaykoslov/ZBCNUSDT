@@ -2,40 +2,33 @@
 // İndikatör Modülleri - Merkezi İçe Aktarma
 // =====================================================
 
-const calculateIchimoku = require('./ichimoku').calculateIchimoku;
-const getIchimokuSignal = require('./ichimoku').getIchimokuSignal;
-
-const calculateWilliamsR = require('./williamsR').calculateWilliamsR;
-const getWilliamsRSignal = require('./williamsR').getWilliamsRSignal;
-
-const calculateCCI = require('./cci').calculateCCI;
-const getCciSignal = require('./cci').getCciSignal;
-
-const calculateVWAP = require('./vwap').calculateVWAP;
-const getVwapSignal = require('./vwap').getVwapSignal;
-
-const calculateVolumeProfile = require('./volumeProfile').calculateVolumeProfile;
-const getVolumeProfileSignal = require('./volumeProfile').getVolumeProfileSignal;
-
-const calculateKeltnerChannels = require('./keltner').calculateKeltnerChannels;
-const getKeltnerSignal = require('./keltner').getKeltnerSignal;
-
-const calculateSupertrend = require('./supertrend').calculateSupertrend;
-const getSupertrendSignal = require('./supertrend').getSupertrendSignal;
+const signalEngine = require('../signals/signalEngine');
 
 module.exports = {
-    calculateIchimoku,
-    getIchimokuSignal,
-    calculateWilliamsR,
-    getWilliamsRSignal,
-    calculateCCI,
-    getCciSignal,
-    calculateVWAP,
-    getVwapSignal,
-    calculateVolumeProfile,
-    getVolumeProfileSignal,
-    calculateKeltnerChannels,
-    getKeltnerSignal,
-    calculateSupertrend,
-    getSupertrendSignal
+    // Temel indikatörler (signalEngine.js içinden)
+    sma: signalEngine.sma,
+    ema: signalEngine.ema,
+    rsi: signalEngine.rsi,
+    macd: signalEngine.macd,
+    bollinger: signalEngine.bollinger,
+    atr: signalEngine.atr,
+    adx: signalEngine.adx,
+    obv: signalEngine.obv,
+    slope: signalEngine.slope,
+
+    // Özel indikatörler
+    calculateIchimoku: require('./ichimoku').calculateIchimoku,
+    getIchimokuSignal: require('./ichimoku').getIchimokuSignal,
+    calculateWilliamsR: require('./williamsR').calculateWilliamsR,
+    getWilliamsRSignal: require('./williamsR').getWilliamsRSignal,
+    calculateCCI: require('./cci').calculateCCI,
+    getCciSignal: require('./cci').getCciSignal,
+    calculateVWAP: require('./vwap').calculateVWAP,
+    getVwapSignal: require('./vwap').getVwapSignal,
+    calculateVolumeProfile: require('./volumeProfile').calculateVolumeProfile,
+    getVolumeProfileSignal: require('./volumeProfile').getVolumeProfileSignal,
+    calculateKeltnerChannels: require('./keltner').calculateKeltnerChannels,
+    getKeltnerSignal: require('./keltner').getKeltnerSignal,
+    calculateSupertrend: require('./supertrend').calculateSupertrend,
+    getSupertrendSignal: require('./supertrend').getSupertrendSignal
 };

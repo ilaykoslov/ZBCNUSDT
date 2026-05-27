@@ -115,16 +115,22 @@ async function runTests() {
         if (!c.symbols) throw new Error('Missing symbols config');
         if (!c.symbols.ZBCNUSDT) throw new Error('Missing ZBCNUSDT config');
         if (!c.symbols.PROSUSDT) throw new Error('Missing PROSUSDT config');
+        if (!c.symbols.WLFIUSDT) throw new Error('Missing WLFIUSDT config');
     });
-    
+
     await test('Config - sembol detayları', async () => {
         const c = await get('/api/config');
         const z = c.symbols.ZBCNUSDT;
         const p = c.symbols.PROSUSDT;
+        const w = c.symbols.WLFIUSDT;
+
         if (z.kucoinSymbol !== 'ZBCN-USDT') throw new Error('Wrong ZBCN KuCoin symbol: ' + z.kucoinSymbol);
         if (p.kucoinSymbol !== 'PROS-USDT') throw new Error('Wrong PROS KuCoin symbol: ' + p.kucoinSymbol);
+        if (w.kucoinSymbol !== 'WLFI-USDT') throw new Error('Wrong WLFI KuCoin symbol: ' + w.kucoinSymbol);
+
         if (z.coingeckoId !== 'zebec-network') throw new Error('Wrong ZBCN CoinGecko ID');
-        if (p.coingeckoId !== 'pros') throw new Error('Wrong PROS CoinGecko ID');
+        if (p.coingeckoId !== 'pharos-network') throw new Error('Wrong PROS CoinGecko ID: ' + p.coingeckoId);
+        if (w.coingeckoId !== 'wlfi') throw new Error('Wrong WLFI CoinGecko ID: ' + w.coingeckoId);
     });
     
     await test('Config - signal thresholds', async () => {

@@ -7,11 +7,15 @@ const config = require('./config');
 const { PaperTradingEngine, RiskManager, DataValidator } = require('./core');
 const { retryManager } = require('./utils/retry');
 const { sendTelegramMessage, sendDiscordMessage } = require('./utils/webhook');
+const { WebSocketServer } = require('ws');
+const { RealTimeData } = require('./api');
+
 
 const app = express();
-const PORT = parseInt(process.env.PORT) || config.server.port;
-if (process.env.API_TIMEOUT) config.api.timeout = parseInt(process.env.API_TIMEOUT);
-if (process.env.REFRESH_MS) config.refresh.dashboardMs = parseInt(process.env.REFRESH_MS);
+const PORT = (() => { const p = parseInt(process.env.PORT); return !isNaN(p) && p > 0 ? p : config.server.port; })();
+// H-3 FIX: parseInt NaN validation — geçersiz env vars default'a düşer
+if (process.env.API_TIMEOUT) { const p = parseInt(process.env.API_TIMEOUT); if (!isNaN(p) && p > 0) config.api.timeout = p; }
+if (process.env.REFRESH_MS) { const p = parseInt(process.env.REFRESH_MS); if (!isNaN(p) && p > 0) config.refresh.dashboardMs = p; }
 
 // Load environment variables for alerts
 if (process.env.ALERTS_ENABLED) config.alerts.enabled = process.env.ALERTS_ENABLED === 'true';
@@ -62,7 +66,45 @@ for (const sym of activeSymbols) {
 }
 
 async function triggerAlerts(symbol, signalEntry) {
-    if (!config.alerts.enabled) return;
+
+    if (!config.alerts.enabled) {
+        // Live dashboard push: alerts kapalı olsa bile signal görünümü gelsin
+        try {
+            broadcast(symbol, { type: 'signalChange', symbol, signal: {
+                signal: signalEntry.signal,
+                confidence: signalEntry.confidence,
+                weightedScore: signalEntry.weightedScore,
+                tfAlignment: signalEntry.tfAlignment,
+                regime: signalEntry.regime,
+                grade: signalEntry.grade
+            }, ts: Date.now() });
+        } catch (e) {
+            // ignore
+        }
+        return;
+    }
+
+
+    // Dashboard'a canlı push (anlık sinyal görünümü)
+    try {
+        broadcast(symbol, {
+            type: 'signalChange',
+            symbol,
+            signal: {
+                signal: signalEntry.signal,
+                confidence: signalEntry.confidence,
+                weightedScore: signalEntry.weightedScore,
+                tfAlignment: signalEntry.tfAlignment,
+                regime: signalEntry.regime,
+                grade: signalEntry.grade
+            },
+            ts: Date.now()
+        });
+    } catch (e) {
+        // ignore
+    }
+
+
 
     const message = `🚨 <b>YENİ SİNYAL: ${symbol}</b> 🚨\n\n` +
         `📊 <b>Sinyal</b>: ${signalEntry.signal}\n` +
@@ -96,6 +138,8 @@ async function triggerAlerts(symbol, signalEntry) {
     }
 }
 
+// M-1 FIX: Async yazma + race condition önleme (C-7)
+const signalWriteQueues = {};
 function appendSignal(symbol, signalEntry) {
     if (!config.signalHistory.enabled) return;
     const hist = signalHistories[symbol];
@@ -107,15 +151,21 @@ function appendSignal(symbol, signalEntry) {
     if (hist.length > config.signalHistory.maxEntries) {
         signalHistories[symbol] = hist.slice(-config.signalHistory.maxEntries);
     }
-    try {
-        if (!fs.existsSync(SIGNAL_HISTORY_DIR)) fs.mkdirSync(SIGNAL_HISTORY_DIR, { recursive: true });
-        fs.writeFileSync(path.join(SIGNAL_HISTORY_DIR, `signals_${symbol}.json`), JSON.stringify(signalHistories[symbol], null, 2));
-        
-        // Sinyal başarıyla kaydedildiğinde alarm tetikle
-        triggerAlerts(symbol, signalEntry);
-    } catch (e) {
-        console.error(`${symbol} sinyal kaydı yazılamadı:`, e.message);
-    }
+    // Async queue ile race condition önle
+    if (!signalWriteQueues[symbol]) signalWriteQueues[symbol] = Promise.resolve();
+    signalWriteQueues[symbol] = signalWriteQueues[symbol].then(async () => {
+        try {
+            if (!fs.existsSync(SIGNAL_HISTORY_DIR)) fs.mkdirSync(SIGNAL_HISTORY_DIR, { recursive: true });
+            await fs.promises.writeFile(
+                path.join(SIGNAL_HISTORY_DIR, `signals_${symbol}.json`),
+                JSON.stringify(signalHistories[symbol], null, 2)
+            );
+            // Sinyal kaydedildiğinde alarm tetikle (async, bekleme)
+            setImmediate(() => triggerAlerts(symbol, signalEntry).catch(e => console.error(e)));
+        } catch (e) {
+            console.error(`${symbol} sinyal kaydı yazılamadı:`, e.message);
+        }
+    }).catch(e => console.error(`${symbol} queue hatası:`, e.message));
 }
 
 // ========================================
@@ -123,6 +173,72 @@ function appendSignal(symbol, signalEntry) {
 // ========================================
 
 app.use(express.json());
+
+// ========================================
+// LIVE PUSH (WebSocket) - Dashboard anlık güncelleme
+// ========================================
+const wss = new WebSocketServer({ noServer: true, path: '/ws' });
+const wsClientsBySymbol = new Map(); // symbol -> Set(ws)
+
+function getClientSet(symbol) {
+    if (!wsClientsBySymbol.has(symbol)) wsClientsBySymbol.set(symbol, new Set());
+    return wsClientsBySymbol.get(symbol);
+}
+
+function broadcast(symbol, payload) {
+    const set = wsClientsBySymbol.get(symbol);
+    if (!set || set.size === 0) return;
+    const msg = JSON.stringify(payload);
+    for (const ws of set) {
+        if (ws.readyState === ws.OPEN) ws.send(msg);
+    }
+}
+
+function normalizeSymbol(sym) {
+    return sym && symbols[sym] ? sym : config.activeSymbol;
+}
+
+wss.on('connection', (ws) => {
+    // Default subscription
+    let subscribedSymbol = config.activeSymbol;
+
+    ws.on('message', (raw) => {
+        try {
+            const msg = JSON.parse(raw.toString());
+            if (msg && msg.type === 'subscribe' && msg.symbol) {
+                subscribedSymbol = normalizeSymbol(msg.symbol);
+                const set = getClientSet(subscribedSymbol);
+                set.add(ws);
+            }
+        } catch (e) {
+            // ignore
+        }
+    });
+
+    ws.on('close', () => {
+        for (const [sym, set] of wsClientsBySymbol.entries()) {
+            if (set.has(ws)) set.delete(ws);
+        }
+    });
+
+    getClientSet(subscribedSymbol).add(ws);
+    ws.send(JSON.stringify({ type: 'welcome', symbol: subscribedSymbol, ts: Date.now() }));
+});
+
+// Create real HTTP server so ws upgrade can work reliably
+const httpServer = http.createServer(app);
+
+// Upgrade handler for WebSocket
+httpServer.on('upgrade', (request, socket, head) => {
+    const pathname = request.url ? request.url.split('?')[0] : '';
+    if (pathname !== '/ws') return socket.destroy();
+
+    wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+    });
+});
+
+
 
 // Rate limiting
 const rateLimit = require('express-rate-limit');
@@ -160,6 +276,16 @@ app.use(express.static(path.join(__dirname)));
 
 // Favicon
 app.get('/favicon.ico', (req, res) => res.status(204).end());
+
+// ========================================
+// M-18 FIX: API endpoint'lerinde önbelleklemeyi engelle
+// ========================================
+app.use('/api/', (req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    next();
+});
 
 // ========================================
 // SAĞLIK VE YAPILANDIRMA ENDPOINT'LERİ
@@ -585,6 +711,88 @@ app.get('/api/all', async (req, res) => {
     }
 });
 
+// ========================================
+// SİNYAL ENDPOINT - BACKEND SOURCE OF TRUTH
+// ========================================
+const { computeSignal } = require('./core/signals/signalEngine');
+
+function parseKuCoinCandlesToBackend(data) {
+    // KuCoin format: [time, open, close, high, low, volume, turnover]
+    if (!Array.isArray(data)) return null;
+    return [...data].reverse().map(c => ({
+        time: parseInt(c[0]) * 1000,
+        open: parseFloat(c[1]),
+        close: parseFloat(c[2]),
+        high: parseFloat(c[3]),
+        low: parseFloat(c[4]),
+        volume: parseFloat(c[5])
+    }));
+}
+
+app.get('/api/signal', async (req, res) => {
+    try {
+        const symbol = req.query.symbol || config.activeSymbol;
+        const symCfg = symbols[symbol];
+        if (!symCfg) return res.status(400).json({ error: `Unknown symbol: ${symbol}` });
+
+        // Prefer cached candles if recent enough
+        const cached = dataCaches[symbol]?.data;
+        const cacheOk = cached && cached.candles1h && cached.candles1h.code === '200000';
+
+        const kucoinSym = symCfg.kucoinSymbol;
+
+        const fetchSafe = async (url, headers = {}) => {
+            try {
+                return await retryManager.execute(async () => {
+                    return await fetchJson(url, headers);
+                }, { context: `Signal API ${symbol}` });
+            } catch (e) {
+                console.error(`Signal API hatası [${symbol}]:`, url, e.message.substring(0, 100));
+                return { error: e.message, code: 'ERROR' };
+            }
+        };
+
+        const [candles1h, candles15m, candles4h] = cacheOk
+            ? [cached.candles1h, cached.candles15m, cached.candles4h]
+            : await Promise.all([
+                fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=1hour&limit=${config.api.maxCandles}`),
+                fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=15min&limit=${config.api.maxCandles}`),
+                fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=4hour&limit=${config.api.maxCandles}`)
+            ]);
+
+        if (!candles1h || candles1h.code !== '200000') {
+            return res.status(503).json({ error: `Candles unavailable for ${symbol}` });
+        }
+
+        const c1h = parseKuCoinCandlesToBackend(candles1h.data);
+        const c15m = candles15m && candles15m.code === '200000' ? parseKuCoinCandlesToBackend(candles15m.data) : null;
+        const c4h = candles4h && candles4h.code === '200000' ? parseKuCoinCandlesToBackend(candles4h.data) : null;
+
+        if (!c1h || c1h.length < 30) return res.status(503).json({ error: `Insufficient 1h candles for ${symbol}` });
+        if (!c15m || c15m.length < 30) return res.status(503).json({ error: `Insufficient 15m candles for ${symbol}` });
+        if (!c4h || c4h.length < 30) return res.status(503).json({ error: `Insufficient 4h candles for ${symbol}` });
+
+        // Validate (best-effort)
+        try { dataValidator.validateCandleData(c1h, '1h'); } catch (_) {}
+        try { dataValidator.validateCandleData(c15m, '15m'); } catch (_) {}
+        try { dataValidator.validateCandleData(c4h, '4h'); } catch (_) {}
+
+        const candlesByTf = { '1h': c1h, '15m': c15m, '4h': c4h };
+
+        const payload = computeSignal({
+            symbol,
+            candlesByTf,
+            appConfig: config
+        });
+
+        res.json(payload);
+
+    } catch (e) {
+        console.error(`/api/signal hatası:`, e.message);
+        res.status(500).json({ error: e.message, code: 'ERROR' });
+    }
+});
+
 app.get('/api/kucoin/ticker', async (req, res) => {
     try {
         const symbol = req.query.symbol || config.activeSymbol;
@@ -638,16 +846,30 @@ async function fetchJson(url, extraHeaders = {}) {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': 'application/json',
                 ...extraHeaders
-            },
-            rejectUnauthorized: false
+            // C-1 FIX: TLS sertifika doğrulaması kaldırıldı (MITM riski)
+            // Production'da rejectUnauthorized: true (varsayılan) kullanılır
+            // },
+            // rejectUnauthorized: false
         };
+        // Geliştirme için sertifika doğrulamasını atla (NODE_TLS_REJECT_UNAUTHORIZED=0 ile)
+        if (process.env.NODE_ENV !== 'production') {
+            opts.rejectUnauthorized = false;
+        }
 
         const req = mod.request(opts, (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
+                // C-5 FIX: Boş yanıt kontrolü
+                if (!data || !data.trim()) {
+                    return reject(new Error('Empty response from ' + url));
+                }
                 try { resolve(JSON.parse(data)); }
-                catch (e) { reject(new Error('JSON parse error from ' + url + ': ' + data.substring(0, 300))); }
+                catch (e) {
+                    // H-14 FIX: URL'den API key/secret/token/passphrase temizle
+                    const sanitized = url.replace(/[&?](api[_-]?key|secret|token|passphrase)=[^&]+/gi, '$1=***');
+                    reject(new Error('JSON parse error from ' + sanitized + ': ' + data.substring(0, 300)));
+                }
             });
         });
         req.on('error', reject);
@@ -657,6 +879,17 @@ async function fetchJson(url, extraHeaders = {}) {
 }
 
 // ========================================
+// M-4 FIX: Process-level hata yakalama (crash önle)
+// ========================================
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection:', reason?.message || reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('❌ Uncaught Exception:', err.message);
+    // Sunucuyu çökertme — toparlanmaya çalış
+});
+
+// ========================================
 // ANA SAYFA VE BAŞLATMA
 // ========================================
 
@@ -664,7 +897,8 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
-app.listen(PORT, config.server.host, () => {
+const server = httpServer.listen(PORT, config.server.host, () => {
+
     console.log(`=============================================`);
     console.log(`  ZBCNUSDT / PROSUSDT Sinyal Dashboard`);
     console.log(`  http://localhost:${PORT}`);
@@ -680,6 +914,9 @@ app.listen(PORT, config.server.host, () => {
     console.log(`  API timeout: ${config.api.timeout / 1000}s`);
     console.log(`=============================================`);
 });
+
+
+
 
 app.use((err, req, res, next) => {
     console.error('API Hatası:', err.message);

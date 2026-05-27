@@ -1,38 +1,43 @@
-# ZBCNUSDT - Production-ready sinyal + veri altyapısı planı (TODO)
+# TODO - Canlı Dashboard (Anlık Push)
 
-## 1. Keşif
-- [x] Proje ağacı / ana giriş noktalarını tespit et
-- [x] server.js endpoint’lerini ve core modülleri okuma
-- [x] Sinyal motorunun fiilen dashboard.html client-side’da çalıştığını doğrula
+## 1) Planı uygula
+- [ ] Server tarafına WebSocket (ws) endpoint ekle
+- [ ] `api/realtime.js` içindeki KuCoin realtime client(lar)ı server’a bağla
+- [ ] `dataCaches` içine realtime veriyi yaz
+- [ ] Değişen veri/sinyal için throttled push yap
+- [x] `dashboard.html` push kanalına bağlanıp anlık UI güncelle
+- [x] Fallback olarak polling’i koru (WS koparsa)
 
-## 2. Sinyal mimarisini tekle
-- [ ] `core/signals/signalEngine.js` (yeni):
-  - [ ] TF bazlı indicator hesaplarını kullan
-  - [ ] Trend/Momentum/Volatility/Volume/Structure skorlarını üret
-  - [ ] `core/signals/confluence.js` ile confluence+confidence+grade üret
-  - [ ] State machine: LONG/SHORT/WAIT/NO_TRADE üret (determineSignalState)
 
-## 3. Backend endpoint ekle
-- [ ] `server.js`: `/api/latest-signal?symbol=` route’u
-  - [ ] `/api/all` mantığıyla candles + ticker/orderbook topla
-  - [ ] `signalEngine` ile final sinyal üret
-  - [ ] Yanıt JSON şemasıyla uyumlu dön (timestamp/state dahil)
+## 2) Test / Doğrulama
+- [ ] `npm test` çalıştır
+- [ ] sunucuyu ayağa kaldır
+- [ ] dashboard’da veri değişimini F5’siz anlık doğrula
 
-## 4. Dashboard güncelleme
-- [ ] `dashboard.html`: sinyal hesabını devre dışı bırak
-- [ ] `dashboard.html`: `/api/latest-signal` sonucunu çekip UI render et
-- [ ] `/api/log-signal`: otomatik loglamayı opsiyonel hale getir (isteğe bağlı)
+## 3) Backend Sinyal (Source of Truth)
+- [x] `GET /api/signal?symbol=...` endpoint ekle
+- [ ] 1h/15m/4h candles ile backend indikatörleri hesapla
+- [ ] TF bazlı BUY/SELL/NEUTRAL + confluence/regime/grade üret
+- [ ] False-signal azaltma için state/guard (NO_TRADE/WAIT) ekle
+- [ ] Sinyal payload formatını `tests/test_schema.json` ile uyumlu hale getir
 
-## 5. Reliability & validation
-- [ ] `server.js`: candle validation’ı tüm TF’lere uygula (1h/15m/4h)
-- [ ] NaN/null guard + schema validation ekle
-- [ ] Cache TTL + stale behavior netleştir
+## 4) Backend İndikatör Tamamlama
+- [ ] `core/indicators/index.js` exportlarını tamamla (RSI/MACD/SMA/EMA/ADX/BB/ATR/OBV eksikleri)
+- [ ] Gerekli indikatör modüllerini ekle (backend hesaplama için)
+- [ ] İndikatör hesaplarında NaN/null güvenliği ve veri uzunluğu guard’ları ekle
 
-## 6. Testler
-- [ ] `tests/integration.test.js`: `/api/latest-signal` testleri ekle
-- [ ] `npm test` ve `npm run test:integration` çalıştır
+## 5) Dashboard Render Moduna Geçiş
+- [ ] dashboard.html içindeki runAnalysis/indicator hesaplarını devre dışı bırak veya “backendEnabled” flag ile kapat
+- [ ] `GET /api/signal` veya WS `signalChange` payload’ını UI’ya bas
+- [ ] WS payload alanlarının (ticker/orderbook/candles/signal) UI ile eşleşmesini düzelt
 
-## 7. Prod güvenlik
-- [ ] TLS doğrulama (`rejectUnauthorized:false`) kaldır (opsiyonel / env ile)
-- [ ] Live trading kapalı kalacak şekilde manuel onay akışını doğrula
+## 6) Canlı Push / WS Sinyal Tetikleme
+- [ ] `api/realtime.js` içinde topic→TF map’i doğru olacak şekilde düzelt
+- [ ] throttled debounce ile signal üretimini sınırlı yap
+- [ ] WS üzerinden `signalChange` broadcast’ı dashboard tarafından sorunsuz tüketilsin
+
+## 7) Entegrasyon Testleri
+- [ ] `tests/integration.test.js` içine `/api/signal` endpoint testleri ekle
+- [ ] payload schema validation ekle
+- [ ] rate-limit/timeout için test senaryoları ekle
 

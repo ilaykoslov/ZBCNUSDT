@@ -201,7 +201,10 @@
             <select id="symbolSelector" onchange="switchSymbol(this.value)" style="background:rgba(15,23,42,0.8);border:1px solid rgba(148,163,184,0.2);color:#e2e8f0;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
                 <option value="ZBCNUSDT">🪙 ZBCN/USDT</option>
                 <option value="PROSUSDT">🪙 PROS/USDT</option>
+                <option value="WLFIUSDT">🪙 WLFI/USDT</option>
+                <option value="SOLUSDT">🪙 SOL/USDT</option>
             </select>
+
             <button onclick="forceRefresh()" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.2);color:#6366f1;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;">
                 ⟳ Yenile
             </button>
@@ -480,13 +483,14 @@
 <script>
 // ========== TEKNİK ANALİZ FONKSİYONLARI ==========
 
+// M-16 FIX: O(n²) → O(n) sliding window optimizasyonu
 function calculateSMA(data, period) {
     const result = [];
+    let sum = 0;
     for (let i = 0; i < data.length; i++) {
-        if (i < period - 1) { result.push(null); continue; }
-        let sum = 0;
-        for (let j = i - period + 1; j <= i; j++) sum += data[j];
-        result.push(sum / period);
+        sum += data[i];
+        if (i >= period) sum -= data[i - period];
+        result.push(i >= period - 1 ? sum / period : null);
     }
     return result;
 }
@@ -543,11 +547,20 @@ function formatNumber(num, decimals = 6) {
 }
 
 function formatCompact(num) {
-    if (!num || isNaN(num)) return '--';
+    // C-6 FIX: 0 falsy değil, null/undefined/NaN kontrolü
+    if (num === null || num === undefined || isNaN(num)) return '--';
     if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
     if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
     if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
     return num.toFixed(2);
+}
+
+// ========== C-2 FIX: XSS önleme için HTML escape ==========
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
 }
 
 // ========== PROFESYONEL İNDİKATÖR FONKSİYONLARI ==========
@@ -965,19 +978,35 @@ let currentSymbol = 'ZBCNUSDT';
 function switchSymbol(symbol) {
     currentSymbol = symbol;
     // Update UI labels
-    document.querySelector('.logo-text span').textContent = (symbol === 'ZBCNUSDT' ? 'Zebec Network' : 'Prosper') + ' / USDT • Gerçek Zamanlı';
-    document.querySelector('.price-label').textContent = (symbol === 'ZBCNUSDT' ? 'ZBCN' : 'PROS') + ' / USDT • Anlık Fiyat';
+    const tokenName =
+        symbol === 'ZBCNUSDT' ? 'Zebec Network' :
+        symbol === 'PROSUSDT' ? 'Prosper' :
+        symbol === 'WLFIUSDT' ? 'WLFI' :
+        symbol;
+
+    const tokenShort =
+        symbol === 'ZBCNUSDT' ? 'ZBCN' :
+        symbol === 'PROSUSDT' ? 'PROS' :
+        symbol === 'WLFIUSDT' ? 'WLFI' :
+        symbol;
+
+    document.querySelector('.logo-text span').textContent = tokenName + ' / USDT • Gerçek Zamanlı';
+    document.querySelector('.price-label').textContent = tokenShort + ' / USDT • Anlık Fiyat';
     document.getElementById('dataSource').textContent = 'Proxy Sunucu (' + symbol + ')';
-    
+
     // Update footer links dynamically
     const kcLink = document.getElementById('kucoinLink');
     const cgLink = document.getElementById('coingeckoLink');
+
     if (symbol === 'ZBCNUSDT') {
         if (kcLink) kcLink.href = 'https://www.kucoin.com/trade/ZBCN-USDT';
         if (cgLink) cgLink.href = 'https://www.coingecko.com/en/coins/zebec-network';
-    } else {
+    } else if (symbol === 'PROSUSDT') {
         if (kcLink) kcLink.href = 'https://www.kucoin.com/trade/PROS-USDT';
         if (cgLink) cgLink.href = 'https://www.coingecko.com/en/coins/pharos-network';
+    } else if (symbol === 'WLFIUSDT') {
+        if (kcLink) kcLink.href = 'https://www.kucoin.com/trade/WLFI-USDT';
+        if (cgLink) cgLink.href = 'https://www.coingecko.com/en/coins/wlfi';
     }
 
     // Clear and reload
@@ -1099,7 +1128,8 @@ function parseKuCoinCandles(data) {
 
 function processTicker(d) {
     const price = parseFloat(d.last);
-    const changePct = parseFloat(d.changeRate) * 100;
+    // H-16 FIX: changeRate undefined ise 0 kullan (NaN önle)
+    const changePct = (d.changeRate != null ? parseFloat(d.changeRate) : 0) * 100;
     const high = parseFloat(d.high);
     const low = parseFloat(d.low);
     const vol = parseFloat(d.volValue);
@@ -1114,7 +1144,8 @@ function processTicker(d) {
     document.getElementById('low24h').textContent = '$' + formatNumber(low);
     document.getElementById('volume24h').textContent = '$' + formatCompact(vol);
     
-    document.getElementById('open24h').textContent = '$' + formatNumber(avgPrice);
+    // M-12 FIX: avgPrice 0 ise '--' göster
+    document.getElementById('open24h').textContent = avgPrice > 0 ? '$' + formatNumber(avgPrice) : '--';
     document.getElementById('prevClose').textContent = '$' + formatNumber(price);
     document.getElementById('high24h2').textContent = '$' + formatNumber(high);
     document.getElementById('low24h2').textContent = '$' + formatNumber(low);
@@ -1217,7 +1248,8 @@ function analyzeTimeframe(candles, tfName) {
             }
         }
         const meanChange = allChanges.length > 0 ? allChanges.reduce((a,b) => a+b, 0) / allChanges.length : 1;
-        obvSlope = meanChange > 0 ? recentChange / meanChange : 0;
+        // H-4 FIX: Division by zero — meanChange 0'a çok yakınsa slope=0
+        obvSlope = meanChange > 1e-10 ? recentChange / meanChange : 0;
     }
     
     // RSI Divergence
@@ -1378,7 +1410,8 @@ function analyzeTimeframe(candles, tfName) {
     const lastVol = volumes[volumes.length - 1];
     if (avgVol > 0) {
         const volRatio = lastVol / avgVol;
-        if (volRatio > 1.5 && currentPrice > closes[closes.length - 2]) { volumeScore += 15; volumeDetails.push('VolSurge↑'); }
+        // H-12 FIX: closes.length >= 2 kontrolü (out-of-bounds)
+        if (volRatio > 1.5 && closes.length >= 2 && currentPrice > closes[closes.length - 2]) { volumeScore += 15; volumeDetails.push('VolSurge↑'); }
         else if (volRatio > 1.5) { volumeScore -= 15; volumeDetails.push('VolSurge↓'); }
         else if (volRatio > 1.2) { volumeScore += 5; volumeDetails.push('Vol>Avg(' + volRatio.toFixed(1) + 'x)'); }
     }
@@ -1594,10 +1627,10 @@ function calculateTradeGrade(weightedScore, confidence, regime, adxVal) {
     if (regime === 'Chop' && grade === 'A') { grade = 'B'; gradeLabel = 'B (Chop-Orta)'; gradeColor = '#06b6d4'; }
     else if (regime === 'Chop' && grade === 'S') { grade = 'A'; gradeLabel = 'A (Chop-Güçlü)'; gradeColor = '#22c55e'; }
     
-    // Öneri metni
+    // Öneri metni (H-9 FIX: AL=yeşil, SAT=kırmızı)
     let advice = '';
     if (weightedScore > 0) {
-        if (grade === 'S') advice = '🔴 GÜÇLÜ AL - Trend ve momentum uyumlu.';
+        if (grade === 'S') advice = '🟢 GÜÇLÜ AL - Trend ve momentum uyumlu.';
         else if (grade === 'A') advice = '🟢 AL - Confluence olumlu.';
         else if (grade === 'B') advice = '🔵 HAFİF AL - Teyit bekle.';
         else if (grade === 'C') advice = '🟡 DİKKAT - Zayıf sinyal, risk yüksek.';
@@ -1631,6 +1664,14 @@ function getRegimeWeights(regime, baseWeights) {
         w.structure = Math.min(25, w.structure + 5);
         w.trend = Math.max(15, w.trend - 10);
         w.momentum = Math.max(20, w.momentum - 5);
+    }
+    
+    // M-8 FIX: Ağırlıkları %100'e normalize et
+    const total = Object.values(w).reduce((a, b) => a + b, 0);
+    if (total > 0) {
+        for (const k of Object.keys(w)) {
+            w[k] = Math.round((w[k] / total) * 100);
+        }
     }
     
     return w;
@@ -1722,13 +1763,13 @@ function runAnalysis() {
     document.getElementById('priceVsSma7').textContent = vsSma7Display;
     
     if (ind.sma7 !== null && ind.sma7 !== undefined) {
-        setSignal('sma7Signal', currentPrice > ind.sma7 ? 'AL' : 'SAT', currentPrice > ind.sma7);
+        setSignal('sma7Signal', currentPrice > ind.sma7 ? 'AL' : 'SAT', currentPrice > ind.sma7 ? 'buy' : 'sell');
     }
     if (ind.sma25 !== null && ind.sma25 !== undefined) {
-        setSignal('sma25Signal', currentPrice > ind.sma25 ? 'AL' : 'SAT', currentPrice > ind.sma25);
+        setSignal('sma25Signal', currentPrice > ind.sma25 ? 'AL' : 'SAT', currentPrice > ind.sma25 ? 'buy' : 'sell');
     }
-    if (ind.sma99) setSignal('sma99Signal', currentPrice > ind.sma99 ? 'AL' : 'SAT', currentPrice > ind.sma99);
-    if (ind.sma7 != null) setSignal('priceVsSma7Signal', vsSma7 > 0 ? 'AL' : 'SAT', vsSma7 > 0);
+    if (ind.sma99) setSignal('sma99Signal', currentPrice > ind.sma99 ? 'AL' : 'SAT', currentPrice > ind.sma99 ? 'buy' : 'sell');
+    if (ind.sma7 != null) setSignal('priceVsSma7Signal', vsSma7 > 0 ? 'AL' : 'SAT', vsSma7 > 0 ? 'buy' : 'sell');
     
     // RSI
     document.getElementById('rsiValue').textContent = ind.rsi !== null ? ind.rsi.toFixed(1) : '--';
@@ -1999,11 +2040,13 @@ function runAnalysis() {
     drawSparkline(closes1h.slice(-48), volumes1h);
 }
 
-function setSignal(id, text, isBuy) {
+// H-8 FIX: direction 'buy'/'sell'/'neutral' olabilir
+function setSignal(id, text, direction) {
     const el = document.getElementById(id);
     if (!el) return;
     el.textContent = text || '--';
-    el.className = 'indicator-signal ' + (isBuy ? 'buy' : 'sell');
+    const cls = direction === 'buy' ? 'buy' : direction === 'sell' ? 'sell' : 'neutral';
+    el.className = 'indicator-signal ' + cls;
 }
 
 function drawSparkline(data, volumes) {
@@ -2131,19 +2174,20 @@ async function loadSignalHistory() {
         for (const s of [...history].reverse()) {
             const ts = s.timestamp ? new Date(s.timestamp).toLocaleTimeString('tr-TR') : '--';
             const signalClass = s.signal === 'BUY' ? 'buy' : s.signal === 'SELL' ? 'sell' : 'neutral';
+            // C-2: XSS önleme — escapeHtml kullan
             html += '<tr>' +
-                '<td style="color:#64748b;font-size:11px;">' + ts + '</td>' +
-                '<td><span class="indicator-signal ' + signalClass + '">' + s.signal + '</span></td>' +
-                '<td style="font-weight:600;">' + (s.confidence || '--') + '%</td>' +
-                '<td style="color:#94a3b8;">' + (s.weightedScore !== undefined ? s.weightedScore.toFixed(1) : '--') + '</td>' +
-                '<td style="color:#64748b;font-size:11px;">' + (s.tfAlignment || '--') + '</td>' +
+                '<td style="color:#64748b;font-size:11px;">' + escapeHtml(ts) + '</td>' +
+                '<td><span class="indicator-signal ' + signalClass + '">' + escapeHtml(s.signal) + '</span></td>' +
+                '<td style="font-weight:600;">' + escapeHtml(s.confidence || '--') + '%</td>' +
+                '<td style="color:#94a3b8;">' + escapeHtml(s.weightedScore !== undefined ? s.weightedScore.toFixed(1) : '--') + '</td>' +
+                '<td style="color:#64748b;font-size:11px;">' + escapeHtml(s.tfAlignment || '--') + '</td>' +
                 '</tr>';
         }
         html += '</tbody></table>';
         document.getElementById('signalHistoryContent').innerHTML = html;
     } catch (e) {
         document.getElementById('signalHistoryContent').innerHTML =
-            '<span style="color:#ef4444;">Sinyal geçmişi alınamadı: ' + e.message + '</span>';
+            '<span style="color:#ef4444;">Sinyal geçmişi alınamadı: ' + escapeHtml(e.message) + '</span>';
     }
 }
 
@@ -2342,10 +2386,10 @@ async function executePaperTrade() {
             }
             loadPaperTradingData();
         } else {
-            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Hata: ' + (data.error || 'Bilinmeyen hata') + '</span>';
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Hata: ' + escapeHtml(data.error || 'Bilinmeyen hata') + '</span>';
         }
     } catch (e) {
-        resultEl.innerHTML = '<span style="color:#ef4444;">❌ Bağlantı hatası: ' + e.message + '</span>';
+        resultEl.innerHTML = '<span style="color:#ef4444;">❌ Bağlantı hatası: ' + escapeHtml(e.message) + '</span>';
     }
 }
 
@@ -2394,10 +2438,10 @@ async function executeAutoTrade() {
             resultEl.innerHTML = '<span style="color:#22c55e;">🤖 Otomatik ' + signal + ' emri verildi! (ID: ' + data.tradeId + ')</span>';
             loadPaperTradingData();
         } else {
-            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Otomatik işlem başarısız: ' + (data.error || 'Bilinmeyen hata') + '</span>';
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Otomatik işlem başarısız: ' + escapeHtml(data.error || 'Bilinmeyen hata') + '</span>';
         }
     } catch (e) {
-        resultEl.innerHTML = '<span style="color:#ef4444;">❌ Bağlantı hatası: ' + e.message + '</span>';
+        resultEl.innerHTML = '<span style="color:#ef4444;">❌ Bağlantı hatası: ' + escapeHtml(e.message) + '</span>';
     }
 }
 
@@ -2433,10 +2477,10 @@ async function closePositionById(positionId) {
             resultEl.innerHTML = '<span style="color:' + (data.pnl >= 0 ? '#22c55e' : '#ef4444') + ';">✅ Pozisyon kapatıldı. PnL: ' + pnlText + '</span>';
             loadPaperTradingData();
         } else {
-            resultEl.innerHTML = '<span style="color:#ef4444;">❌ ' + (data.error || 'Kapatma başarısız') + '</span>';
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ ' + escapeHtml(data.error || 'Kapatma başarısız') + '</span>';
         }
     } catch (e) {
-        resultEl.innerHTML = '<span style="color:#ef4444;">❌ Bağlantı hatası: ' + e.message + '</span>';
+        resultEl.innerHTML = '<span style="color:#ef4444;">❌ Bağlantı hatası: ' + escapeHtml(e.message) + '</span>';
     }
 }
 
@@ -2453,7 +2497,7 @@ async function approveOrderById(tradeId) {
             loadPaperTradingData();
         }
     } catch (e) {
-        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + e.message + '</span>';
+        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + escapeHtml(e.message) + '</span>';
     }
 }
 
@@ -2470,7 +2514,7 @@ async function rejectOrderById(tradeId) {
             loadPaperTradingData();
         }
     } catch (e) {
-        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + e.message + '</span>';
+        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + escapeHtml(e.message) + '</span>';
     }
 }
 
@@ -2524,7 +2568,7 @@ async function setModePaper() {
             document.getElementById('ptRiskResult').innerHTML = '<span style="color:#22c55e;">✅ Paper mod aktif.</span>';
         }
     } catch (e) {
-        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + e.message + '</span>';
+        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + escapeHtml(e.message) + '</span>';
     }
 }
 
@@ -2543,7 +2587,7 @@ async function resetPaperTrading() {
             loadPaperTradingData();
         }
     } catch (e) {
-        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + e.message + '</span>';
+        document.getElementById('ptRiskResult').innerHTML = '<span style="color:#ef4444;">❌ ' + escapeHtml(e.message) + '</span>';
     }
 }
 
@@ -2553,13 +2597,87 @@ setInterval(loadPaperTradingData, 15000);
 // Periyodik sağlık kontrolü (30 sn'de bir)
 setInterval(checkServerHealth, 30000);
 
+let liveWs = null;
+let wsLastSignal = null;
+
+function connectLiveWs() {
+    try {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = proto + '://' + location.host + '/ws';
+        liveWs = new WebSocket(wsUrl);
+
+        liveWs.onopen = () => {
+            // İlgili sembol aboneliği (sunucu subscribe mesajını dinliyor)
+            liveWs.send(JSON.stringify({ type: 'subscribe', symbol: currentSymbol }));
+        };
+
+        liveWs.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                if (!msg || !msg.type) return;
+
+                // İstersen sadece sinyal değişiminde UI güncelleyebilirsin.
+                // Şimdilik fiyat/ticker güncellemesi gelince anlık fetch etmeye gerek kalmadan UI refresh yapacağız:
+                if (msg.type === 'update' && msg.symbol === currentSymbol && msg.payload) {
+                    // Minimal alanlar: ticker+orderbook+cadence (candles yoksa runAnalysis için /api/all'e düşeriz)
+                    // runAnalysis için candles şart olduğundan sadece UI değerlerini güncelliyoruz.
+                    const p = msg.payload;
+                    if (p.ticker) {
+                        processTicker(p.ticker);
+                    }
+                    if (p.orderbook) {
+                        processOrderbook(p.orderbook);
+                    }
+                    if (p.ticker && p.ticker.changeRate != null) {
+                        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('tr-TR');
+                    }
+                }
+
+                if (msg.type === 'signalChange' && msg.symbol === currentSymbol) {
+                    const s = msg.signal;
+                    // UI hızlı güncelle
+                    document.getElementById('signalBadge').textContent = s.signal;
+                    document.getElementById('signalBadge').className = 'signal-badge ' + s.signal.toLowerCase();
+                    document.getElementById('signalConfidence').textContent = (s.confidence || 0).toFixed(0) + '%';
+                    document.getElementById('signalTimestamp').textContent = 'Live • ' + (s.tfAlignment || '—');
+
+                    const banner = document.getElementById('alertBanner');
+                    if (s.signal === 'BUY') {
+                        banner.className = 'alert-banner buy';
+                        banner.textContent = 'AL SİNYALİ: ' + currentSymbol + ' için alış sinyali. (Güven: ' + (s.confidence || 0).toFixed(0) + '%)';
+                    } else if (s.signal === 'SELL') {
+                        banner.className = 'alert-banner sell';
+                        banner.textContent = 'SAT SİNYALİ: ' + currentSymbol + ' için satış sinyali. (Güven: ' + (s.confidence || 0).toFixed(0) + '%)';
+                    } else {
+                        banner.className = 'alert-banner neutral';
+                        banner.textContent = 'NÖTR: ' + currentSymbol + ' net sinyal vermiyor.';
+                    }
+
+                    // Geçmişi hemen güncelle
+                    loadSignalHistory();
+                }
+            } catch (e) {
+                // ignore
+            }
+        };
+
+        liveWs.onclose = () => {
+            // WS koparsa polling ile devam eder
+        };
+    } catch (e) {
+        console.warn('Live WS bağlanamadı:', e.message);
+    }
+}
+
 window.addEventListener('load', () => {
     startAutoRefresh();
     loadSignalHistory();
     loadPaperTradingData();  // Paper trading verilerini ilk yüklemede al
     // Sinyal geçmişini her 60 sn'de bir güncelle
     setInterval(loadSignalHistory, 60000);
+    connectLiveWs();
 });
+
 window.addEventListener('resize', () => {
     if (candleData1h.length > 0) {
         const closes = candleData1h.map(c => c.close).slice(-48);

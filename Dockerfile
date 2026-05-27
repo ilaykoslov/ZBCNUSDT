@@ -13,12 +13,21 @@ RUN npm ci --only=production
 FROM node:20-alpine
 WORKDIR /app
 
+# M-20 FIX: healthcheck için wget kur
+RUN apk add --no-cache wget
+
+# L-8 FIX: Root yerine appuser kullan (güvenlik)
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 # Sadece production için gerekli dosyalar
 COPY --from=builder /app/node_modules ./node_modules
 COPY . .
 
 # Sinyal geçmişi için data/ dizini oluştur
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data && chown -R appuser:appgroup /app
+
+# L-8: Root yetkilerini bırak
+USER appuser
 
 # Port
 EXPOSE 3456

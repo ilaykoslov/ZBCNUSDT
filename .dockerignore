@@ -1,0 +1,22 @@
+# L-9 FIX: Docker build context'ten gereksiz dosyaları çıkar
+node_modules/
+npm-debug.log*
+.git/
+.gitignore
+.gitattributes
+.vscode/
+.idea/
+*.md
+*.log
+.env
+.env.local
+.env.*.local
+.dockerignore
+Dockerfile
+docker-compose.yml
+data/*.json
+!data/.gitkeep
+tests/
+docs/
+tmp/
+temp/

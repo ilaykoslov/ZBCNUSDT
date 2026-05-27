@@ -14,7 +14,7 @@ const config = {
     },
 
     // === AKTİF SEMBOL (varsayılan) ===
-    activeSymbol: process.env.ACTIVE_SYMBOL || 'ZBCNUSDT', // 'ZBCNUSDT' or 'PROSUSDT'
+    activeSymbol: process.env.ACTIVE_SYMBOL || 'ZBCNUSDT', // 'ZBCNUSDT', 'PROSUSDT', 'WLFIUSDT', 'SOLUSDT'
 
     // === API AYARLARI ===
     api: {
@@ -42,6 +42,30 @@ const config = {
             coinName: 'Prosper',
             paperTradingStateFile: './data/paperTrading_PROSUSDT.json',
             paperTradingInitialBalance: 5000
+        },
+        'WLFIUSDT': {
+            kucoinSymbol: 'WLFI-USDT',
+            coingeckoId: 'wlfi',
+            label: 'WLFI / USDT',
+            coinName: 'WLFI',
+            paperTradingStateFile: './data/paperTrading_WLFIUSDT.json',
+            paperTradingInitialBalance: 5000
+        },
+        'SOLUSDT': {
+            kucoinSymbol: 'SOL-USDT',
+            coingeckoId: 'solana',
+            label: 'SOL / USDT',
+            coinName: 'Solana',
+            paperTradingStateFile: './data/paperTrading_SOLUSDT.json',
+            paperTradingInitialBalance: 5000,
+            // SOL için özel ayarlar
+            specialSettings: {
+                signalThresholds: { buy: 15, sell: -15 },
+                categoryWeights: { trend: 25, momentum: 30, volatility: 20, volume: 15, structure: 10 },
+                timeframes: { '1h': { weight: 40 }, '15m': { weight: 35 }, '4h': { weight: 25 } },
+                confidence: { baseBuy: 60, baseSell: 60, minConfidence: 30, maxConfidence: 98 },
+                indicators: { rsi: { period: 10 }, adx: { period: 10 }, atr: { period: 10 } }
+            }
         }
     },
 

@@ -51,10 +51,15 @@ class RealTimeData {
     subscribe() {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
+        const activeSymbol = (this.config && this.config.activeSymbol) ? this.config.activeSymbol : 'ZBCNUSDT';
+        const symbols = (this.config && this.config.symbols) ? this.config.symbols : {};
+        const symCfg = symbols[activeSymbol];
+        const kucoinSym = symCfg?.kucoinSymbol || 'ZBCN-USDT';
+
         // Ticker aboneliği
         this.send({
             type: 'subscribe',
-            topic: `/market/ticker:ZBCN-USDT`,
+            topic: `/market/ticker:${kucoinSym}`,
             privateChannel: false,
             response: true
         });
@@ -62,7 +67,7 @@ class RealTimeData {
         // Orderbook aboneliği (seviye 1)
         this.send({
             type: 'subscribe',
-            topic: `/market/orderbook:1:ZBCN-USDT`,
+            topic: `/market/orderbook:1:${kucoinSym}`,
             privateChannel: false,
             response: true
         });
@@ -71,7 +76,7 @@ class RealTimeData {
         ['1min', '5min', '15min', '1hour', '4hour'].forEach(tf => {
             this.send({
                 type: 'subscribe',
-                topic: `/market/candles:ZBCN-USDT_${tf}`,
+                topic: `/market/candles:${kucoinSym}_${tf}`,
                 privateChannel: false,
                 response: true
             });
