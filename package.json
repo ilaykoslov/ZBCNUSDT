@@ -1,0 +1,27 @@
+{
+  "name": "zbcnusdt",
+  "version": "2.0.0",
+  "description": "ZBCNUSDT Canlı Sinyal Dashboard - Multi-Timeframe Confluence Sistemi",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "dev:watch": "nodemon server.js",
+    "test": "node test_signal.cjs",
+    "test:full": "node test_signal.mjs",
+    "health": "curl http://localhost:3456/api/health"
+  },
+  "keywords": ["kucoin", "crypto", "signal", "trading", "zbcn", "technical-analysis"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
