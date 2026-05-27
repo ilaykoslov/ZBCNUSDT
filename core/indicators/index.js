@@ -17,6 +17,9 @@ const getVwapSignal = require('./vwap').getVwapSignal;
 const calculateVolumeProfile = require('./volumeProfile').calculateVolumeProfile;
 const getVolumeProfileSignal = require('./volumeProfile').getVolumeProfileSignal;
 
+const calculateKeltnerChannels = require('./keltner').calculateKeltnerChannels;
+const getKeltnerSignal = require('./keltner').getKeltnerSignal;
+
 module.exports = {
     calculateIchimoku,
     getIchimokuSignal,
@@ -27,5 +30,7 @@ module.exports = {
     calculateVWAP,
     getVwapSignal,
     calculateVolumeProfile,
-    getVolumeProfileSignal
+    getVolumeProfileSignal,
+    calculateKeltnerChannels,
+    getKeltnerSignal
 };
