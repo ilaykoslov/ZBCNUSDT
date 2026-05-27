@@ -16,10 +16,10 @@
 
 ## 3) Backend Sinyal (Source of Truth)
 - [x] `GET /api/signal?symbol=...` endpoint ekle
-- [ ] 1h/15m/4h candles ile backend indikatörleri hesapla
-- [ ] TF bazlı BUY/SELL/NEUTRAL + confluence/regime/grade üret
-- [ ] False-signal azaltma için state/guard (NO_TRADE/WAIT) ekle
-- [ ] Sinyal payload formatını `tests/test_schema.json` ile uyumlu hale getir
+- [x] 1h/15m/4h candles ile backend indikatörleri hesaplanıyor (GET /api/signal)
+- [x] TF bazlı BUY/SELL/NEUTRAL + confluence/regime/grade üretimi var
+- [x] False-signal azaltma için state/guard (NO_TRADE/WAIT) computeSignal içinde uygulanıyor
+- [x] Sinyal payload formatı tests/test_schema.json alanları ile uyumlu (signal/confidence/weightedScore/timestamp + enum’lar)
 
 ## 4) Backend İndikatör Tamamlama
 - [x] `core/indicators/index.js` exportları tamam (RSI/MACD/SMA/EMA/ADX/BB/ATR/OBV + özel indikatörler)
