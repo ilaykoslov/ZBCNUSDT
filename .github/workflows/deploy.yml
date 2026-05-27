@@ -1,0 +1,108 @@
+name: 🚀 Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment hedefi'
+        type: choice
+        required: true
+        default: 'production'
+        options:
+          - production
+          - staging
+
+jobs:
+  # ──────────────── SEÇENEK 1: Render.com (Ücretsiz) ────────────────
+  deploy-render:
+    name: 🎯 Render'a Deploy Et
+    runs-on: ubuntu-latest
+    if: false  # Aktifleştirmek için 'false' → 'true' yapın
+    steps:
+      - name: Render Deploy Hook'u tetikle
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+        # Render'da: New Web Service -> Connect GitHub repo -> Build: `npm install` -> Start: `node server.js`
+
+  # ──────────────── SEÇENEK 2: Fly.io (Ücretsiz) ────────────────
+  deploy-fly:
+    name: 🪰 Fly.io'ya Deploy Et
+    runs-on: ubuntu-latest
+    if: false  # Aktifleştirmek için 'false' → 'true' yapın
+    steps:
+      - name: Fly.io CLI kur
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Fly.io'ya deploy et
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    # Gerekenler:
+    #   1. flyctl auth login (yerelde)
+    #   2. flyctl launch (fly.toml oluşturur)
+    #   3. GitHub Secrets'e FLY_API_TOKEN ekle
+    #   4. Bu job'un if: false → if: true yap
+
+  # ──────────────── SEÇENEK 3: SSH ile VPS (DigitalOcean vb.) ────────────────
+  deploy-vps:
+    name: 🖥️ VPS'e Deploy Et
+    runs-on: ubuntu-latest
+    if: false  # Aktifleştirmek için 'false' → 'true' yapın
+    steps:
+      - name: SSH ile deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/ZBCNUSDT
+            git pull origin main
+            npm ci --production
+            pm2 restart zbcnusdt || node server.js &
+        # Gerekenler:
+        #   1. VPS'e SSH bağlantısı
+        #   2. GitHub Secrets'e VPS_HOST, VPS_USER, VPS_SSH_KEY ekle
+        #   3. Bu job'un if: false → if: true yap
+
+  # ──────────────── SEÇENEK 4: GitHub Container Registry ────────────────
+  docker-build:
+    name: 🐳 Docker Image Oluştur
+    runs-on: ubuntu-latest
+    if: false  # Aktifleştirmek için 'false' → 'true' yapın
+    steps:
+      - name: Kodu çek
+        uses: actions/checkout@v4
+
+      - name: Docker Buildx kur
+        uses: docker/setup-buildx-action@v3
+
+      - name: GHCR'a push
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest
+    # Gerekenler:
+    #   Dockerfile oluştur (aşağıda)
+
+  notify:
+    name: 📬 Bildirim Gönder
+    runs-on: ubuntu-latest
+    needs: [deploy-render, deploy-fly, deploy-vps, docker-build]
+    if: always() && !cancelled()
+    steps:
+      - name: Deploy durumu
+        run: |
+          echo "✅ Deploy pipeline tamamlandı."
+          echo "Repo: ${{ github.server_url }}/${{ github.repository }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "İş tarihi: $(date -u)"

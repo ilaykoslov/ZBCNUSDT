@@ -1,0 +1,31 @@
+# Dependabot otomatik bağımlılık güncellemeleri
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '06:00'
+      timezone: 'Europe/Istanbul'
+    open-pull-requests-limit: 10
+    labels:
+      - 'dependencies'
+      - 'otomatik'
+    commit-message:
+      prefix: 'chore'
+      prefix-development: 'chore'
+      include: 'scope'
+    versioning-strategy: increase
+    # Sadece güvenlik güncellemeleri için patch seviyesi
+    ignore:
+      - dependency-name: 'express'
+        update-types: ['version-update:semver-major']  # Major güncellemeleri elle yap
+    reviewers:
+      - 'SERDOBABA'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'

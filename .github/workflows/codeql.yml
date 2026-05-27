@@ -1,0 +1,44 @@
+# GitHub CodeQL ile otomatik güvenlik analizi
+# Her push ve PR'de JavaScript kodunu tara, potansiyel zafiyetleri bul
+name: 🔬 CodeQL Güvenlik Analizi
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'  # Her Pazartesi 06:00 UTC
+
+jobs:
+  analyze:
+    name: CodeQL Analiz
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript']
+
+    steps:
+      - name: 📥 Kodu çek
+        uses: actions/checkout@v4
+
+      - name: ⚙️ CodeQL'i başlat
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality  # Güvenlik + kod kalitesi sorguları
+
+      - name: 📦 Bağımlılıkları yükle
+        run: npm ci
+
+      - name: 🔍 CodeQL analizini çalıştır
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{matrix.language}}'

@@ -1,7 +1,7 @@
 {
   "name": "zbcnusdt",
-  "version": "2.0.0",
-  "description": "ZBCNUSDT Canlı Sinyal Dashboard - Multi-Timeframe Confluence Sistemi",
+  "version": "2.1.0",
+  "description": "ZBCNUSDT Canlı Sinyal Terminali — Multi-Timeframe Confluence Sistemi, 10+ Teknik İndikatör",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,12 +9,33 @@
     "dev:watch": "nodemon server.js",
     "test": "node test_signal.cjs",
     "test:full": "node test_signal.mjs",
-    "health": "curl http://localhost:3456/api/health"
+    "health": "curl http://localhost:3456/api/health",
+    "precommit": "npm test",
+    "setup": "npm install && echo '✅ Kurulum tamamlandı. npm start ile başlat.'"
   },
-  "keywords": ["kucoin", "crypto", "signal", "trading", "zbcn", "technical-analysis"],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "kucoin",
+    "crypto",
+    "signal",
+    "trading",
+    "zbcn",
+    "zebec-network",
+    "technical-analysis",
+    "dashboard",
+    "real-time",
+    "multi-timeframe"
+  ],
+  "author": "SERDOBABA",
+  "license": "MIT",
   "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SERDOBABA/ZBCNUSDT.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SERDOBABA/ZBCNUSDT/issues"
+  },
+  "homepage": "https://github.com/SERDOBABA/ZBCNUSDT#readme",
   "dependencies": {
     "express": "^5.2.1"
   },

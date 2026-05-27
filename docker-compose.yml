@@ -1,0 +1,29 @@
+# =============================================
+# ZBCNUSDT Docker Compose
+# =============================================
+# Kullanım: docker compose up -d
+# =============================================
+
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: zbcnusdt
+    ports:
+      - "3456:3456"
+    environment:
+      - PORT=3456
+      - NODE_ENV=production
+      - API_TIMEOUT=15000
+      - REFRESH_MS=15000
+    volumes:
+      # Sinyal geçmişinin kalıcı olması için
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3456/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

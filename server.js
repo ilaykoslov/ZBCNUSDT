@@ -6,8 +6,10 @@ const http = require('http');
 const config = require('./config');
 
 const app = express();
-// Çevre değişkeni PORT'u destekle (üretim için), yoksa config'deki portu kullan
+// Çevre değişkenleri üretim/container ortamında config'i geçersiz kılar
 const PORT = parseInt(process.env.PORT) || config.server.port;
+if (process.env.API_TIMEOUT) config.api.timeout = parseInt(process.env.API_TIMEOUT);
+if (process.env.REFRESH_MS) config.refresh.dashboardMs = parseInt(process.env.REFRESH_MS);
 
 // ========================================
 // VERİ ÖNBELLEK VE SİNYAL GEÇMİŞİ
