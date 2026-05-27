@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: 📥 Kodu çek
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: ⚙️ Node.js ${{ matrix.node-version }} kur
         uses: actions/setup-node@v4
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Kodu çek
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 🔍 Gitleaks (sır taraması)
         uses: gitleaks/gitleaks-action@v2

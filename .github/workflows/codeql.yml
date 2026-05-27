@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: 📥 Kodu çek
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: ⚙️ CodeQL'i başlat
         uses: github/codeql-action/init@v3
