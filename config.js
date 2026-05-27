@@ -37,7 +37,7 @@ const config = {
         },
         'PROSUSDT': {
             kucoinSymbol: 'PROS-USDT',
-            coingeckoId: 'pros',
+            coingeckoId: 'pharos-network',
             label: 'PROS / USDT',
             coinName: 'Prosper',
             paperTradingStateFile: './data/paperTrading_PROSUSDT.json',
