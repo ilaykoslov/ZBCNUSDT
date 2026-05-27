@@ -20,6 +20,9 @@ const getVolumeProfileSignal = require('./volumeProfile').getVolumeProfileSignal
 const calculateKeltnerChannels = require('./keltner').calculateKeltnerChannels;
 const getKeltnerSignal = require('./keltner').getKeltnerSignal;
 
+const calculateSupertrend = require('./supertrend').calculateSupertrend;
+const getSupertrendSignal = require('./supertrend').getSupertrendSignal;
+
 module.exports = {
     calculateIchimoku,
     getIchimokuSignal,
@@ -32,5 +35,7 @@ module.exports = {
     calculateVolumeProfile,
     getVolumeProfileSignal,
     calculateKeltnerChannels,
-    getKeltnerSignal
+    getKeltnerSignal,
+    calculateSupertrend,
+    getSupertrendSignal
 };

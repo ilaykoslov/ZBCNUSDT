@@ -400,6 +400,13 @@ const riskManager = new RiskManager({
     defaultStopLoss: 0.05, defaultTakeProfit: 0.10, riskRewardRatio: 2.0, minConfidence: 60
 });
 
+const dataValidator = new DataValidator({
+    maxGapSize: config.dataValidation?.maxGapSize || 3,
+    minCandleCount: config.dataValidation?.minCandleCount || 30,
+    timestampTolerance: config.dataValidation?.timestampTolerance || 60000,
+    priceTolerance: config.dataValidation?.priceTolerance || 0.01
+});
+
 app.get('/api/risk/parameters', (req, res) => {
     try { res.json(riskManager.getRiskParameters()); }
     catch (e) { res.status(500).json({ error: e.message }); }
@@ -489,7 +496,29 @@ app.get('/api/all', async (req, res) => {
             )
         ]);
 
-        const responseData = { ticker, orderbook, candles1h, candles15m, candles4h, coingecko, _symbol: symbol };
+        let validationResult = { valid: true, warnings: [], errors: [] };
+        if (candles1h && candles1h.code === '200000' && Array.isArray(candles1h.data)) {
+            const parsed1h = [...candles1h.data].reverse().map(c => ({
+                time: parseInt(c[0]) * 1000,
+                open: parseFloat(c[1]),
+                close: parseFloat(c[2]),
+                high: parseFloat(c[3]),
+                low: parseFloat(c[4]),
+                volume: parseFloat(c[5])
+            }));
+            validationResult = dataValidator.validateCandleData(parsed1h, '1h');
+        }
+
+        const responseData = { 
+            ticker, 
+            orderbook, 
+            candles1h, 
+            candles15m, 
+            candles4h, 
+            coingecko, 
+            _symbol: symbol,
+            _validation: validationResult 
+        };
 
         const hasValidData = ticker && ticker.code === '200000';
         if (hasValidData) {

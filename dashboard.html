@@ -471,7 +471,7 @@
     <div class="footer-data">
         <span id="serverStatus" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:6px;"></span>
         Sunucu: <span id="serverStatusText">Aktif</span> •
-        Veri Kaynakları: <a href="https://www.kucoin.com/trade/ZBCN-USDT" target="_blank">KuCoin API</a> • <a href="https://www.coingecko.com/en/coins/zebec-network" target="_blank">CoinGecko</a><br>
+        Veri Kaynakları: <a id="kucoinLink" href="https://www.kucoin.com/trade/ZBCN-USDT" target="_blank">KuCoin API</a> • <a id="coingeckoLink" href="https://www.coingecko.com/en/coins/zebec-network" target="_blank">CoinGecko</a><br>
         Sinyaller 10+ indikatör (RSI, MACD, SMA, BB, ADX, StochRSI, OBV, ATR, Divergence) ve multi-timeframe confluence (15m/1h/4h) ile hesaplanır. Yatırım tavsiyesi değildir.
     </div>
 
@@ -803,6 +803,144 @@ function findSupportResistance(candles, numLevels = 3) {
     return { support: supLevels, resistance: resLevels };
 }
 
+// Ichimoku Cloud
+function calculateIchimoku(candles, tenkanPeriod = 9, kijunPeriod = 26, senkouBPeriod = 52, displacement = 26) {
+    if (!candles || candles.length < senkouBPeriod) {
+        return { tenkan: Array(candles.length).fill(null), kijun: Array(candles.length).fill(null), senkouA: Array(candles.length).fill(null), senkouB: Array(candles.length).fill(null) };
+    }
+    const highs = candles.map(c => c.high);
+    const lows = candles.map(c => c.low);
+    const getHH = (arr, p, end) => { if (end < p - 1) return null; let max = -Infinity; for (let i = end - p + 1; i <= end; i++) if (arr[i] > max) max = arr[i]; return max; };
+    const getLL = (arr, p, end) => { if (end < p - 1) return null; let min = Infinity; for (let i = end - p + 1; i <= end; i++) if (arr[i] < min) min = arr[i]; return min; };
+    const tenkan = [], kijun = [], senkouA = [], senkouB = [];
+    for (let i = 0; i < candles.length; i++) {
+        const tH = getHH(highs, tenkanPeriod, i), tL = getLL(lows, tenkanPeriod, i);
+        tenkan.push(tH !== null && tL !== null ? (tH + tL) / 2 : null);
+        const kH = getHH(highs, kijunPeriod, i), kL = getLL(lows, kijunPeriod, i);
+        kijun.push(kH !== null && kL !== null ? (kH + kL) / 2 : null);
+        const sBH = getHH(highs, senkouBPeriod, i), sBL = getLL(lows, senkouBPeriod, i);
+        senkouB.push(sBH !== null && sBL !== null ? (sBH + sBL) / 2 : null);
+        if (i >= displacement) {
+            const tP = tenkan[i - displacement], kP = kijun[i - displacement];
+            senkouA.push(tP !== null && kP !== null ? (tP + kP) / 2 : null);
+        } else senkouA.push(null);
+    }
+    return { tenkan, kijun, senkouA, senkouB };
+}
+
+// Williams %R
+function calculateWilliamsR(candles, period = 14) {
+    if (!candles || candles.length < period) return Array(candles.length).fill(null);
+    const wr = [];
+    for (let i = 0; i < candles.length; i++) {
+        if (i < period - 1) { wr.push(null); continue; }
+        let hh = -Infinity, ll = Infinity;
+        for (let j = i - period + 1; j <= i; j++) {
+            if (candles[j].high > hh) hh = candles[j].high;
+            if (candles[j].low < ll) ll = candles[j].low;
+        }
+        const den = hh - ll;
+        wr.push(den === 0 ? -50 : ((hh - candles[i].close) / den) * -100);
+    }
+    return wr;
+}
+
+// CCI (Commodity Channel Index)
+function calculateCCI(candles, period = 20) {
+    if (!candles || candles.length < period) return Array(candles.length).fill(null);
+    const tp = candles.map(c => (c.high + c.low + c.close) / 3);
+    const cci = [];
+    for (let i = 0; i < candles.length; i++) {
+        if (i < period - 1) { cci.push(null); continue; }
+        let sum = 0;
+        for (let j = i - period + 1; j <= i; j++) sum += tp[j];
+        const sma = sum / period;
+        let mdSum = 0;
+        for (let j = i - period + 1; j <= i; j++) mdSum += Math.abs(tp[j] - sma);
+        const md = mdSum / period;
+        cci.push(md === 0 ? 0 : (tp[i] - sma) / (0.015 * md));
+    }
+    return cci;
+}
+
+// VWAP (Volume Weighted Average Price)
+function calculateVWAP(candles) {
+    if (!candles || candles.length < 1) return Array(candles.length).fill(null);
+    const vwap = []; let sumPV = 0, sumV = 0;
+    for (let i = 0; i < candles.length; i++) {
+        const tp = (candles[i].high + candles[i].low + candles[i].close) / 3;
+        sumPV += tp * candles[i].volume; sumV += candles[i].volume;
+        vwap.push(sumV > 0 ? sumPV / sumV : null);
+    }
+    return vwap;
+}
+
+// Keltner Channels
+function calculateKeltnerChannels(candles, emaPeriod = 20, atrPeriod = 10, multiplier = 2.0) {
+    if (!candles || candles.length < Math.max(emaPeriod, atrPeriod)) {
+        return { middle: Array(candles.length).fill(null), upper: Array(candles.length).fill(null), lower: Array(candles.length).fill(null) };
+    }
+    const closes = candles.map(c => c.close);
+    const middle = calculateEMA(closes, emaPeriod);
+    const atr = calculateATR(candles, atrPeriod);
+    const upper = [], lower = [];
+    for (let i = 0; i < candles.length; i++) {
+        if (middle[i] === null || atr[i] === null) { upper.push(null); lower.push(null); }
+        else { upper.push(middle[i] + multiplier * atr[i]); lower.push(middle[i] - multiplier * atr[i]); }
+    }
+    return { middle, upper, lower };
+}
+
+// Supertrend
+function calculateSupertrend(candles, period = 10, multiplier = 3.0) {
+    const len = candles.length;
+    if (len < period) {
+        return { supertrend: Array(len).fill(null), direction: Array(len).fill(null) };
+    }
+    const atr = calculateATR(candles, period);
+    const supertrend = Array(len).fill(null);
+    const direction = Array(len).fill(null);
+    const basicUpperBand = Array(len).fill(null);
+    const basicLowerBand = Array(len).fill(null);
+    const finalUpperBand = Array(len).fill(null);
+    const finalLowerBand = Array(len).fill(null);
+
+    for (let i = 0; i < len; i++) {
+        if (i < period) continue;
+        const hl2 = (candles[i].high + candles[i].low) / 2;
+        const atrVal = atr[i];
+        if (atrVal === null) continue;
+
+        basicUpperBand[i] = hl2 + multiplier * atrVal;
+        basicLowerBand[i] = hl2 - multiplier * atrVal;
+
+        if (i > 0 && basicUpperBand[i] < finalUpperBand[i-1] || candles[i-1].close > finalUpperBand[i-1]) {
+            finalUpperBand[i] = basicUpperBand[i];
+        } else {
+            finalUpperBand[i] = finalUpperBand[i-1];
+        }
+
+        if (i > 0 && basicLowerBand[i] > finalLowerBand[i-1] || candles[i-1].close < finalLowerBand[i-1]) {
+            finalLowerBand[i] = basicLowerBand[i];
+        } else {
+            finalLowerBand[i] = finalLowerBand[i-1];
+        }
+
+        if (i === period) {
+            direction[i] = 1;
+            supertrend[i] = finalLowerBand[i];
+        } else {
+            if (supertrend[i-1] === finalUpperBand[i-1]) {
+                direction[i] = candles[i].close > finalUpperBand[i] ? 1 : -1;
+            } else {
+                direction[i] = candles[i].close < finalLowerBand[i] ? -1 : 1;
+            }
+            supertrend[i] = direction[i] === 1 ? finalLowerBand[i] : finalUpperBand[i];
+        }
+    }
+    return { supertrend, direction };
+}
+
 // ========== ANA VERİ ÇEKME ==========
 let candleData1h = [];
 let candleData15m = [];
@@ -830,8 +968,22 @@ function switchSymbol(symbol) {
     document.querySelector('.logo-text span').textContent = (symbol === 'ZBCNUSDT' ? 'Zebec Network' : 'Prosper') + ' / USDT • Gerçek Zamanlı';
     document.querySelector('.price-label').textContent = (symbol === 'ZBCNUSDT' ? 'ZBCN' : 'PROS') + ' / USDT • Anlık Fiyat';
     document.getElementById('dataSource').textContent = 'Proxy Sunucu (' + symbol + ')';
+    
+    // Update footer links dynamically
+    const kcLink = document.getElementById('kucoinLink');
+    const cgLink = document.getElementById('coingeckoLink');
+    if (symbol === 'ZBCNUSDT') {
+        if (kcLink) kcLink.href = 'https://www.kucoin.com/trade/ZBCN-USDT';
+        if (cgLink) cgLink.href = 'https://www.coingecko.com/en/coins/zebec-network';
+    } else {
+        if (kcLink) kcLink.href = 'https://www.kucoin.com/trade/PROS-USDT';
+        if (cgLink) cgLink.href = 'https://www.coingecko.com/en/coins/pharos-network';
+    }
+
     // Clear and reload
     forceRefresh();
+    loadSignalHistory();
+    loadPaperTradingData();
 }
 
 async function fetchAllData() {
@@ -847,6 +999,13 @@ async function fetchAllData() {
         if (json._cached) {
             document.getElementById('lastUpdate').textContent = 
                 'ÖNBELLEK (' + json._cachedAge + 's eski)';
+        }
+
+        // Veri Doğrulama Kontrolleri
+        if (json._validation && !json._validation.valid) {
+            console.warn('⚠️ Veri Doğrulama Hatası:', json._validation.errors);
+        } else if (json._validation && json._validation.warnings.length > 0) {
+            console.warn('⚠️ Veri Doğrulama Uyarıları:', json._validation.warnings);
         }
         
         // Ticker verilerini işle
@@ -993,6 +1152,11 @@ function analyzeTimeframe(candles, tfName) {
     const stochRsi = calculateStochRSI(closes);
     const obvArr = calculateOBV(candles);
     const adxResult = calculateADX(candles, 14);
+    const ichimoku = calculateIchimoku(candles);
+    const wrArr = calculateWilliamsR(candles);
+    const cciArr = calculateCCI(candles);
+    const vwapArr = calculateVWAP(candles);
+    const keltner = calculateKeltnerChannels(candles);
     
     const last = (arr) => arr[arr.length - 1];
     const prev = (arr) => arr.length > 1 ? arr[arr.length - 2] : null;
@@ -1019,6 +1183,19 @@ function analyzeTimeframe(candles, tfName) {
     const adx = last(adxResult.adx);
     const pdi = adxResult.pdi[adxResult.pdi.length - 1];
     const mdi = adxResult.mdi[adxResult.mdi.length - 1];
+    const wr = last(wrArr);
+    const cci = last(cciArr);
+    const vwap = last(vwapArr);
+    const lastTenkan = last(ichimoku.tenkan);
+    const lastKijun = last(ichimoku.kijun);
+    const lastSenkouA = last(ichimoku.senkouA);
+    const lastSenkouB = last(ichimoku.senkouB);
+    const kcUpper = last(keltner.upper);
+    const kcLower = last(keltner.lower);
+    const kcMiddle = last(keltner.middle);
+    const supertrendResult = calculateSupertrend(candles);
+    const supertrendVal = last(supertrendResult.supertrend);
+    const supertrendDir = last(supertrendResult.direction);
     
     // SMA trend yönü (eğim)
     const sma7Slope = calculateSlope(sma7, 3);
@@ -1082,6 +1259,24 @@ function analyzeTimeframe(candles, tfName) {
         else if (adx >= 20) { trendScore += 5; trendDetails.push('Trending(' + adx.toFixed(0) + ')'); }
         else { trendScore += 0; trendDetails.push('Weak(' + adx.toFixed(0) + ')'); }
     }
+
+    // Ichimoku Cloud
+    if (lastTenkan !== null && lastKijun !== null) {
+        if (lastTenkan > lastKijun) { trendScore += 10; trendDetails.push('Tenkan>Kijun'); }
+        else { trendScore -= 10; trendDetails.push('Tenkan<Kijun'); }
+    }
+    if (lastSenkouA !== null && lastSenkouB !== null) {
+        const cloudTop = Math.max(lastSenkouA, lastSenkouB);
+        const cloudBottom = Math.min(lastSenkouA, lastSenkouB);
+        if (currentPrice > cloudTop) { trendScore += 12; trendDetails.push('Fiyat>Bulut'); }
+        else if (currentPrice < cloudBottom) { trendScore -= 12; trendDetails.push('Fiyat<Bulut'); }
+    }
+
+    // Supertrend
+    if (supertrendDir !== null) {
+        if (supertrendDir === 1) { trendScore += 15; trendDetails.push('Supertrend↑'); }
+        else { trendScore -= 15; trendDetails.push('Supertrend↓'); }
+    }
     
     const trendFinal = Math.max(-100, Math.min(100, trendScore));
     
@@ -1117,6 +1312,19 @@ function analyzeTimeframe(candles, tfName) {
         if (stochK > stochD) { momentumScore += 8; momentumDetails.push('StochBull'); }
         else { momentumScore -= 8; momentumDetails.push('StochBear'); }
     }
+
+    // Williams %R
+    if (wr !== null) {
+        if (wr < -80) { momentumScore += 10; momentumDetails.push('WR-Oversold'); }
+        else if (wr > -20) { momentumScore -= 10; momentumDetails.push('WR-Overbought'); }
+    }
+    // CCI
+    if (cci !== null) {
+        if (cci < -100) { momentumScore += 10; momentumDetails.push('CCI-Oversold'); }
+        else if (cci > 100) { momentumScore -= 10; momentumDetails.push('CCI-Overbought'); }
+        if (cci > 0) { momentumScore += 5; momentumDetails.push('CCI>0'); }
+        else { momentumScore -= 5; momentumDetails.push('CCI<0'); }
+    }
     
     const momentumFinal = Math.max(-100, Math.min(100, momentumScore));
     
@@ -1145,6 +1353,12 @@ function analyzeTimeframe(candles, tfName) {
     // ATR trend (yükselen volatilite trendi teyit eder)
     const atrPct = atr && currentPrice ? (atr / currentPrice) * 100 : 0;
     if (atrPct > 5) { volatilityScore += 5; volatilityDetails.push('HighVol(' + atrPct.toFixed(1) + '%)'); }
+
+    // Keltner Channels
+    if (kcUpper !== null && kcLower !== null) {
+        if (currentPrice > kcUpper) { volatilityScore -= 10; volatilityDetails.push('KC>Upper'); }
+        else if (currentPrice < kcLower) { volatilityScore += 10; volatilityDetails.push('KC<Lower'); }
+    }
     
     const volatilityFinal = Math.max(-100, Math.min(100, volatilityScore));
     
@@ -1167,6 +1381,12 @@ function analyzeTimeframe(candles, tfName) {
         if (volRatio > 1.5 && currentPrice > closes[closes.length - 2]) { volumeScore += 15; volumeDetails.push('VolSurge↑'); }
         else if (volRatio > 1.5) { volumeScore -= 15; volumeDetails.push('VolSurge↓'); }
         else if (volRatio > 1.2) { volumeScore += 5; volumeDetails.push('Vol>Avg(' + volRatio.toFixed(1) + 'x)'); }
+    }
+
+    // VWAP
+    if (vwap !== null) {
+        if (currentPrice > vwap) { volumeScore += 12; volumeDetails.push('Fiyat>VWAP'); }
+        else { volumeScore -= 12; volumeDetails.push('Fiyat<VWAP'); }
     }
     
     const volumeFinal = Math.max(-100, Math.min(100, volumeScore));
@@ -1257,7 +1477,13 @@ function analyzeTimeframe(candles, tfName) {
             divergence: rsiDivergence.type,
             support: sr.support,
             resistance: sr.resistance,
-            sma7Slope, sma25Slope
+            sma7Slope, sma25Slope,
+            ichimoku: { tenkan: lastTenkan, kijun: lastKijun, senkouA: lastSenkouA, senkouB: lastSenkouB },
+            wr,
+            cci,
+            vwap,
+            keltner: { upper: kcUpper, lower: kcLower, middle: kcMiddle },
+            supertrend: { value: supertrendVal, direction: supertrendDir }
         },
         weights: w  // Hangi ağırlıkların kullanıldığını ilet
     };
@@ -1683,7 +1909,13 @@ function runAnalysis() {
         <strong>📈 MACD:</strong> ${macdText}<br>
         <strong>📉 ADX:</strong> ${ind.adx !== null ? ind.adx.toFixed(1) : '--'} (${adxStatus})<br>
         <strong>🔵 StochRSI:</strong> ${ind.stochK !== null ? ind.stochK.toFixed(1) : '--'}<br>
-        <strong>🟣 Divergence:</strong> ${ind.divergence !== 'none' ? ind.divergence.toUpperCase() : 'Yok'}<br><br>
+        <strong>🟣 Divergence:</strong> ${ind.divergence !== 'none' ? ind.divergence.toUpperCase() : 'Yok'}<br>
+        <strong>☁️ Ichimoku:</strong> Tenkan: ${ind.ichimoku.tenkan !== null ? '$'+formatNumber(ind.ichimoku.tenkan) : '--'} | Kijun: ${ind.ichimoku.kijun !== null ? '$'+formatNumber(ind.ichimoku.kijun) : '--'}<br>
+        <strong>📊 Williams %R:</strong> ${ind.wr !== null ? ind.wr.toFixed(1) : '--'}<br>
+        <strong>📈 CCI (20):</strong> ${ind.cci !== null ? ind.cci.toFixed(1) : '--'}<br>
+        <strong>💎 VWAP:</strong> ${ind.vwap !== null ? '$'+formatNumber(ind.vwap) : '--'}<br>
+        <strong>🎗️ Keltner Channels:</strong> Upper: ${ind.keltner.upper !== null ? '$'+formatNumber(ind.keltner.upper) : '--'} | Lower: ${ind.keltner.lower !== null ? '$'+formatNumber(ind.keltner.lower) : '--'}<br>
+        <strong>🟢 Supertrend (10,3):</strong> Line: ${ind.supertrend.value !== null ? '$'+formatNumber(ind.supertrend.value) : '--'} | Direction: ${ind.supertrend.direction === 1 ? 'Yükseliş (AL)' : 'Düşüş (SAT)'}<br><br>
         <strong>📐 Pivot Noktaları:</strong> ${pivotInfo}<br>
         <strong>Destek:</strong> ${ind.support.length > 0 ? ind.support.map(s => '$' + formatNumber(s)).join(', ') : '—'}<br>
         <strong>Direnç:</strong> ${ind.resistance.length > 0 ? ind.resistance.map(r => '$' + formatNumber(r)).join(', ') : '—'}<br><br>
@@ -1705,6 +1937,12 @@ function runAnalysis() {
         { name: 'Fiyat > SMA 7', value: (vsSma7 >= 0 ? '+' : '') + vsSma7.toFixed(2) + '%', signal: currentPrice > ind.sma7 ? 'AL' : 'SAT' },
         { name: 'Fiyat > SMA 25', value: '$' + formatNumber(ind.sma25), signal: currentPrice > ind.sma25 ? 'AL' : 'SAT' },
         { name: 'OBV Trend', value: ind.obvSlope !== 0 ? (ind.obvSlope > 0 ? 'Yükselen' : 'Düşen') : '--', signal: ind.obvSlope > 0 ? 'AL' : ind.obvSlope < 0 ? 'SAT' : 'Nötr' },
+        { name: 'Ichimoku Cloud', value: ind.ichimoku.tenkan !== null && ind.ichimoku.kijun !== null ? (ind.ichimoku.tenkan > ind.ichimoku.kijun ? 'Boğa' : 'Ayı') : '--', signal: ind.ichimoku.tenkan !== null && ind.ichimoku.kijun !== null ? (ind.ichimoku.tenkan > ind.ichimoku.kijun ? 'AL' : 'SAT') : 'Nötr' },
+        { name: 'Williams %R', value: ind.wr !== null ? ind.wr.toFixed(1) : '--', signal: ind.wr !== null ? (ind.wr < -80 ? 'AL' : ind.wr > -20 ? 'SAT' : 'Nötr') : '--' },
+        { name: 'CCI (20)', value: ind.cci !== null ? ind.cci.toFixed(1) : '--', signal: ind.cci !== null ? (ind.cci < -100 ? 'AL' : ind.cci > 100 ? 'SAT' : 'Nötr') : '--' },
+        { name: 'Fiyat > VWAP', value: ind.vwap !== null ? '$' + formatNumber(ind.vwap) : '--', signal: ind.vwap !== null ? (currentPrice > ind.vwap ? 'AL' : 'SAT') : 'Nötr' },
+        { name: 'Keltner Channels', value: ind.keltner.upper !== null ? '$' + formatNumber(ind.keltner.upper) : '--', signal: ind.keltner.upper !== null ? (currentPrice > ind.keltner.upper ? 'SAT' : currentPrice < ind.keltner.lower ? 'AL' : 'Nötr') : '--' },
+        { name: 'Supertrend (10,3)', value: ind.supertrend.value !== null ? '$' + formatNumber(ind.supertrend.value) : '--', signal: ind.supertrend.direction === 1 ? 'AL' : ind.supertrend.direction === -1 ? 'SAT' : 'Nötr' },
         { name: 'Piyasa Rejimi', value: regimeInfo.label, signal: regimeSignal },
         { name: 'İşlem Notu', value: result1h.grade ? result1h.grade.grade + ' - ' + result1h.grade.advice : 'NT', signal: gradeSignal },
         { name: 'Confluence', value: sentimentVal.toFixed(0) + '% AL', signal: sentimentVal >= 60 ? 'AL' : sentimentVal <= 40 ? 'SAT' : 'Nötr' },
@@ -1880,7 +2118,7 @@ function toggleSignalHistory() {
 
 async function loadSignalHistory() {
     try {
-        const res = await fetch('/api/signal-history?limit=30');
+        const res = await fetch('/api/signal-history?limit=30&symbol=' + currentSymbol);
         if (!res.ok) return;
         const history = await res.json();
         if (!history || history.length === 0) {
@@ -1950,7 +2188,7 @@ function togglePaperTrading() {
 async function loadPaperTradingData() {
     try {
         // Portfolio
-        const portRes = await fetch('/api/paper-trading/portfolio');
+        const portRes = await fetch('/api/paper-trading/portfolio?symbol=' + currentSymbol);
         if (portRes.ok) {
             const port = await portRes.json();
             document.getElementById('ptInitialBalance').textContent = '$' + (port.initialBalance || 10000).toLocaleString();
@@ -1972,21 +2210,21 @@ async function loadPaperTradingData() {
         }
 
         // Open Positions
-        const posRes = await fetch('/api/paper-trading/positions');
+        const posRes = await fetch('/api/paper-trading/positions?symbol=' + currentSymbol);
         if (posRes.ok) {
             const positions = await posRes.json();
             renderPositions(positions);
         }
 
         // Pending Orders
-        const penRes = await fetch('/api/paper-trading/pending');
+        const penRes = await fetch('/api/paper-trading/pending?symbol=' + currentSymbol);
         if (penRes.ok) {
             const pending = await penRes.json();
             renderPendingOrders(pending);
         }
 
         // Trade History
-        const histRes = await fetch('/api/paper-trading/history?limit=10');
+        const histRes = await fetch('/api/paper-trading/history?symbol=' + currentSymbol + '&limit=10');
         if (histRes.ok) {
             const history = await histRes.json();
             renderTradeHistory(history);
@@ -2090,6 +2328,7 @@ async function executePaperTrade() {
                 signal: signal,
                 price: price,
                 confidence: confidence,
+                symbol: currentSymbol,
                 metadata: { source: 'manual', timestamp: Date.now() }
             })
         });
@@ -2145,6 +2384,7 @@ async function executeAutoTrade() {
                 signal: signal,
                 price: price,
                 confidence: confidence,
+                symbol: currentSymbol,
                 metadata: { source: 'auto_signal', timestamp: Date.now() }
             })
         });
@@ -2182,6 +2422,7 @@ async function closePositionById(positionId) {
             body: JSON.stringify({
                 positionId: positionId,
                 currentPrice: price,
+                symbol: currentSymbol,
                 reason: 'manual_close'
             })
         });
@@ -2251,7 +2492,7 @@ async function checkStopLossTakeProfit() {
         const res = await fetch('/api/paper-trading/check-sl-tp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ currentPrice: price })
+            body: JSON.stringify({ currentPrice: price, symbol: currentSymbol })
         });
         
         const results = await res.json();
@@ -2275,7 +2516,7 @@ async function setModePaper() {
         const res = await fetch('/api/paper-trading/set-mode', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: 'paper' })
+            body: JSON.stringify({ mode: 'paper', symbol: currentSymbol })
         });
         const data = await res.json();
         if (data.success) {
@@ -2293,7 +2534,8 @@ async function resetPaperTrading() {
     try {
         const res = await fetch('/api/paper-trading/reset', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol: currentSymbol })
         });
         const data = await res.json();
         if (data.success) {
