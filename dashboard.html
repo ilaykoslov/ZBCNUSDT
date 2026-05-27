@@ -1858,13 +1858,13 @@ function runAnalysis() {
     const banner = document.getElementById('alertBanner');
     if (finalSignal === 'BUY') {
         banner.className = 'alert-banner buy';
-        banner.textContent = 'AL SİNYALİ: ZBCNUSDT için alış sinyali. (Güven: ' + confidence.toFixed(0) + '%) | TF Uyumu: ' + tfAlignment;
+        banner.textContent = 'AL SİNYALİ: ' + currentSymbol + ' için alış sinyali. (Güven: ' + confidence.toFixed(0) + '%) | TF Uyumu: ' + tfAlignment;
     } else if (finalSignal === 'SELL') {
         banner.className = 'alert-banner sell';
-        banner.textContent = 'SAT SİNYALİ: ZBCNUSDT için satış sinyali. (Güven: ' + confidence.toFixed(0) + '%) | TF Uyumu: ' + tfAlignment;
+        banner.textContent = 'SAT SİNYALİ: ' + currentSymbol + ' için satış sinyali. (Güven: ' + confidence.toFixed(0) + '%) | TF Uyumu: ' + tfAlignment;
     } else {
         banner.className = 'alert-banner neutral';
-        banner.textContent = 'NÖTR: ZBCNUSDT net sinyal vermiyor. TF Uyumu: ' + tfAlignment;
+        banner.textContent = 'NÖTR: ' + currentSymbol + ' net sinyal vermiyor. TF Uyumu: ' + tfAlignment;
     }
     
     // ---- Detaylı Analiz ----
