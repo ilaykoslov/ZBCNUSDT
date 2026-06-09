@@ -944,6 +944,12 @@ function startLiveEngine() {
         console.log('[ENGINE] Canlı sinyal motoru devre dışı (LIVE_ENGINE_ENABLED=false)');
         return;
     }
+    // CI/test ortamında canlı dış ağ daemon'ını başlatma (deterministik, hızlı,
+    // coğrafi kısıtlamalardan bağımsız smoke test). LIVE_ENGINE_ENABLED=true ile zorlanabilir.
+    if (process.env.CI && process.env.LIVE_ENGINE_ENABLED !== 'true') {
+        console.log('[ENGINE] CI ortamı algılandı — canlı sinyal motoru atlandı');
+        return;
+    }
 
     const pollMs = (() => {
         const p = parseInt(process.env.LIVE_ENGINE_POLL_MS);
