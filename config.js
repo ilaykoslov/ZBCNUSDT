@@ -51,6 +51,14 @@ const config = {
             paperTradingStateFile: './data/paperTrading_WLFIUSDT.json',
             paperTradingInitialBalance: 5000
         },
+        'SENTUSDT': {
+            kucoinSymbol: 'SENT-USDT',
+            coingeckoId: 'sentient',
+            label: 'SENT / USDT',
+            coinName: 'Sentient',
+            paperTradingStateFile: './data/paperTrading_SENTUSDT.json',
+            paperTradingInitialBalance: 5000
+        },
         'SOLUSDT': {
             kucoinSymbol: 'SOL-USDT',
             coingeckoId: 'solana',

@@ -130,8 +130,8 @@ class RealTimeData {
             };
         } else if (topic.includes('/market/orderbook')) {
             this.data.orderbook = {
-                bid: parseFloat(data.asks[0]?.price || 0),
-                ask: parseFloat(data.bids[0]?.price || 0),
+                bid: parseFloat(data.bids[0]?.price || 0),
+                ask: parseFloat(data.asks[0]?.price || 0),
                 spread: 0,
                 timestamp: data.timestamp
             };
