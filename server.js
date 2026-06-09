@@ -140,10 +140,21 @@ async function triggerAlerts(symbol, signalEntry) {
 
 // M-1 FIX: Async yazma + race condition önleme (C-7)
 const signalWriteQueues = {};
+// Aynı geçişin kısa süre içinde iki kez loglanmasını engelle. Sinyal geçmişi
+// bir "geçiş" kaydıdır; dashboard /api/log-signal POST'u ve sunucu canlı tick'i
+// aynı değişimi neredeyse eşzamanlı yazabilir. Aynı sinyal bu pencere içinde
+// tekrar gelirse atla (5 dk'lık heartbeat re-log'u korunur).
+const SIGNAL_DEDUP_WINDOW_MS = 60000;
+
 function appendSignal(symbol, signalEntry) {
     if (!config.signalHistory.enabled) return;
     const hist = signalHistories[symbol];
     if (!hist) return;
+    const last = hist[hist.length - 1];
+    if (last && last.signal === signalEntry.signal &&
+        (Date.now() - (last.timestamp || 0)) < SIGNAL_DEDUP_WINDOW_MS) {
+        return; // çift kayıt / çift alarm önle
+    }
     signalEntry.timestamp = Date.now();
     signalEntry.serverTime = new Date().toISOString();
     signalEntry.symbol = symbol;
@@ -840,6 +851,13 @@ async function liveSignalTick() {
                 continue;
             }
             if (!payload) continue;
+
+            // İlk tick'te mevcut durumu "değişim" sanmamak için son kalıcı
+            // geçmiş kaydından tohumla (restart/abonelik sonrası yanlış log önlenir).
+            if (lastBroadcastSignal[symbol] === undefined) {
+                const h = signalHistories[symbol];
+                if (h && h.length) lastBroadcastSignal[symbol] = h[h.length - 1].signal;
+            }
 
             if (lastBroadcastSignal[symbol] !== payload.signal) {
                 // Sinyal değişti: geçmişe yaz (appendSignal alarm + signalChange broadcast tetikler)
