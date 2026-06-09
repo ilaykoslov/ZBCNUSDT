@@ -615,15 +615,19 @@ function computeSignal({ candlesByTf, appConfig, symbol }) {
 
     const timeframeAnalyses = {};
     for (const [tf, candles] of Object.entries(candlesByTf)) {
-        const res = analyzeTimeframeTf(candles, tf, appConfig);
+        // FIX: sembole özel ayarları (specialSettings) uygula — mergedConfig kullan
+        const res = analyzeTimeframeTf(candles, tf, mergedConfig);
         if (res) timeframeAnalyses[tf] = res;
     }
 
+    // FIX: analyzeConfluence düz sayısal ağırlık bekler. Daha önce `tfWeights`
+    // ({ '1h': { weight: 50 } } biçiminde nesne) geçiliyordu → NaN → confidence null.
+    // Düzleştirilmiş `finalTfWeights` ve mergedConfig değerlerini geç.
     const confluencePayload = analyzeConfluence(timeframeAnalyses, {
-        timeframeWeights: tfWeights,
-        categoryWeights: appConfig?.categoryWeights,
-        signalThresholds: appConfig?.signalThresholds,
-        confidence: appConfig?.confidence
+        timeframeWeights: finalTfWeights,
+        categoryWeights: mergedConfig?.categoryWeights,
+        signalThresholds: mergedConfig?.signalThresholds,
+        confidence: mergedConfig?.confidence
     });
 
     // regime/grade from 1h as primary if exists, else from overall
@@ -631,8 +635,9 @@ function computeSignal({ candlesByTf, appConfig, symbol }) {
     const regime = primary?.regime || confluencePayload?.results?.[0]?.details?.regime || 'Unknown';
     const grade = primary?.grade || { grade: 'NT', gradeColor: '#64748b', gradeLabel: 'NT', advice: '—' };
 
-    const weightedScore = confluencePayload.weightedScore || 0;
-    const confidence = confluencePayload.confidence ?? 50;
+    // FIX: NaN/sonsuz değerlere karşı koru (confidence null bug'ı için ikinci savunma hattı)
+    const weightedScore = Number.isFinite(confluencePayload.weightedScore) ? confluencePayload.weightedScore : 0;
+    const confidence = Number.isFinite(confluencePayload.confidence) ? confluencePayload.confidence : 50;
 
     const now = Date.now();
     const price = (() => {

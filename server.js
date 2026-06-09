@@ -9,6 +9,7 @@ const { retryManager } = require('./utils/retry');
 const { sendTelegramMessage, sendDiscordMessage } = require('./utils/webhook');
 const { WebSocketServer } = require('ws');
 const { RealTimeData } = require('./api');
+const LiveSignalEngine = require('./core/engine/liveSignalEngine');
 
 
 const app = express();
@@ -793,6 +794,24 @@ app.get('/api/signal', async (req, res) => {
     }
 });
 
+// ========================================
+// CANLI SİNYAL MOTORU - DURUM
+// ========================================
+let liveEngine = null;
+
+app.get('/api/engine/status', (req, res) => {
+    if (!liveEngine) return res.json({ running: false, message: 'Canlı sinyal motoru devre dışı' });
+    res.json(liveEngine.getStatus());
+});
+
+app.get('/api/engine/latest', (req, res) => {
+    const symbol = req.query.symbol || config.activeSymbol;
+    if (!liveEngine) return res.status(503).json({ error: 'Motor devre dışı' });
+    const latest = liveEngine.getLatest(symbol);
+    if (!latest) return res.status(404).json({ error: `Henüz ${symbol} için sinyal üretilmedi` });
+    res.json(latest);
+});
+
 app.get('/api/kucoin/ticker', async (req, res) => {
     try {
         const symbol = req.query.symbol || config.activeSymbol;
@@ -846,13 +865,12 @@ async function fetchJson(url, extraHeaders = {}) {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': 'application/json',
                 ...extraHeaders
-            // C-1 FIX: TLS sertifika doğrulaması kaldırıldı (MITM riski)
-            // Production'da rejectUnauthorized: true (varsayılan) kullanılır
-            // },
-            // rejectUnauthorized: false
+            }
+            // C-1 FIX: TLS sertifika doğrulaması varsayılan olarak AÇIK bırakıldı (MITM riski).
+            // rejectUnauthorized'ı yalnızca açıkça istenirse devre dışı bırak.
         };
-        // Geliştirme için sertifika doğrulamasını atla (NODE_TLS_REJECT_UNAUTHORIZED=0 ile)
-        if (process.env.NODE_ENV !== 'production') {
+        // Sertifika doğrulamasını yalnızca açıkça izin verildiğinde atla.
+        if (process.env.ALLOW_INSECURE_TLS === 'true') {
             opts.rejectUnauthorized = false;
         }
 
@@ -913,7 +931,83 @@ const server = httpServer.listen(PORT, config.server.host, () => {
     console.log(`  Yenileme: ${config.refresh.dashboardMs / 1000}s`);
     console.log(`  API timeout: ${config.api.timeout / 1000}s`);
     console.log(`=============================================`);
+
+    startLiveEngine();
 });
+
+// ========================================
+// CANLI SİNYAL MOTORU - BAŞLATMA
+// ========================================
+function startLiveEngine() {
+    // LIVE_ENGINE_ENABLED=false ile devre dışı bırakılabilir (örn. test ortamı)
+    if (process.env.LIVE_ENGINE_ENABLED === 'false') {
+        console.log('[ENGINE] Canlı sinyal motoru devre dışı (LIVE_ENGINE_ENABLED=false)');
+        return;
+    }
+    // CI/test ortamında canlı dış ağ daemon'ını başlatma (deterministik, hızlı,
+    // coğrafi kısıtlamalardan bağımsız smoke test). LIVE_ENGINE_ENABLED=true ile zorlanabilir.
+    if (process.env.CI && process.env.LIVE_ENGINE_ENABLED !== 'true') {
+        console.log('[ENGINE] CI ortamı algılandı — canlı sinyal motoru atlandı');
+        return;
+    }
+
+    const pollMs = (() => {
+        const p = parseInt(process.env.LIVE_ENGINE_POLL_MS);
+        return !isNaN(p) && p >= 3000 ? p : 15000;
+    })();
+
+    // Motor için mum çekici (gerçek KuCoin REST verisi, retry'li)
+    const fetchCandlesForEngine = async (kucoinSym, type, limit) => {
+        const url = `${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=${type}&limit=${limit}`;
+        const json = await retryManager.execute(() => fetchJson(url), { context: `Engine ${kucoinSym} ${type}` });
+        if (!json || json.code !== '200000' || !Array.isArray(json.data)) {
+            throw new Error(`mum verisi alınamadı (${type})`);
+        }
+        return parseKuCoinCandlesToBackend(json.data);
+    };
+
+    try {
+        liveEngine = new LiveSignalEngine({
+            config,
+            symbols: activeSymbols,
+            computeSignal,
+            fetchCandles: fetchCandlesForEngine,
+            pollIntervalMs: pollMs,
+            enableWebSocket: process.env.LIVE_ENGINE_WS !== 'false',
+            // Sinyal/state değişiminde: kalıcı geçmiş (db) + webhook + dashboard push
+            onSignalChange: (symbol, payload) => {
+                appendSignal(symbol, {
+                    signal: payload.signal,
+                    confidence: payload.confidence,
+                    weightedScore: payload.weightedScore,
+                    breakdown: payload.breakdown || {},
+                    tfAlignment: payload.tfAlignment || 'unknown',
+                    regime: payload.regime || 'Unknown',
+                    grade: payload.grade || 'NT',
+                    price: payload.livePrice ?? payload.price ?? null,
+                    multiTf: payload.multiTf || {},
+                    state: payload.state || 'WAIT',
+                    source: 'live-engine'
+                });
+            },
+            // Canlı fiyat (düşük gecikme): dashboard WS istemcilerine push
+            onTicker: (symbol, ticker) => {
+                broadcast(symbol, {
+                    type: 'update',
+                    symbol,
+                    payload: {
+                        orderbook: { bestBid: ticker.bestBid, bestAsk: ticker.bestAsk },
+                        price: ticker.price
+                    },
+                    ts: Date.now()
+                });
+            }
+        });
+        liveEngine.start();
+    } catch (e) {
+        console.error('[ENGINE] başlatılamadı:', e.message);
+    }
+}
 
 
 
