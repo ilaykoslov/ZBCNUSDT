@@ -615,15 +615,15 @@ function computeSignal({ candlesByTf, appConfig, symbol }) {
 
     const timeframeAnalyses = {};
     for (const [tf, candles] of Object.entries(candlesByTf)) {
-        const res = analyzeTimeframeTf(candles, tf, appConfig);
+        const res = analyzeTimeframeTf(candles, tf, mergedConfig);
         if (res) timeframeAnalyses[tf] = res;
     }
 
     const confluencePayload = analyzeConfluence(timeframeAnalyses, {
-        timeframeWeights: tfWeights,
-        categoryWeights: appConfig?.categoryWeights,
-        signalThresholds: appConfig?.signalThresholds,
-        confidence: appConfig?.confidence
+        timeframeWeights: finalTfWeights,
+        categoryWeights: mergedConfig?.categoryWeights,
+        signalThresholds: mergedConfig?.signalThresholds,
+        confidence: mergedConfig?.confidence
     });
 
     // regime/grade from 1h as primary if exists, else from overall

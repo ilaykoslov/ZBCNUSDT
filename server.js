@@ -207,8 +207,9 @@ wss.on('connection', (ws) => {
             const msg = JSON.parse(raw.toString());
             if (msg && msg.type === 'subscribe' && msg.symbol) {
                 subscribedSymbol = normalizeSymbol(msg.symbol);
-                const set = getClientSet(subscribedSymbol);
-                set.add(ws);
+                // Önce diğer sembol setlerinden çıkar (sembol değişiminde çift abonelik olmasın)
+                for (const [, otherSet] of wsClientsBySymbol.entries()) otherSet.delete(ws);
+                getClientSet(subscribedSymbol).add(ws);
             }
         } catch (e) {
             // ignore
@@ -793,6 +794,89 @@ app.get('/api/signal', async (req, res) => {
     }
 });
 
+// ========================================
+// CANLI SİNYAL PUSH DÖNGÜSÜ (server-side broadcast)
+// ========================================
+// Aktif WS abonesi olan her sembol için periyodik olarak backend sinyalini
+// hesaplar ve dashboard'a anlık (F5'siz) push eder. Sinyal değiştiğinde geçmişe yazar.
+const lastBroadcastSignal = {};
+
+async function generateSignalForSymbol(symbol) {
+    const symCfg = symbols[symbol];
+    if (!symCfg) return null;
+    const kucoinSym = symCfg.kucoinSymbol;
+    const fetchSafe = async (url) => {
+        try {
+            return await retryManager.execute(() => fetchJson(url), { context: `LiveSignal ${symbol}` });
+        } catch (e) {
+            return { error: e.message, code: 'ERROR' };
+        }
+    };
+    const [c1h, c15m, c4h] = await Promise.all([
+        fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=1hour&limit=${config.api.maxCandles}`),
+        fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=15min&limit=${config.api.maxCandles}`),
+        fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=4hour&limit=${config.api.maxCandles}`)
+    ]);
+    if (!c1h || c1h.code !== '200000') return null;
+    const a = parseKuCoinCandlesToBackend(c1h.data);
+    const b = c15m && c15m.code === '200000' ? parseKuCoinCandlesToBackend(c15m.data) : null;
+    const d = c4h && c4h.code === '200000' ? parseKuCoinCandlesToBackend(c4h.data) : null;
+    if (!a || a.length < 30 || !b || b.length < 30 || !d || d.length < 30) return null;
+    return computeSignal({ symbol, candlesByTf: { '1h': a, '15m': b, '4h': d }, appConfig: config });
+}
+
+let liveLoopRunning = false;
+async function liveSignalTick() {
+    if (liveLoopRunning) return; // önceki tick bitmeden yenisini başlatma
+    liveLoopRunning = true;
+    try {
+        for (const [symbol, set] of wsClientsBySymbol.entries()) {
+            if (!set || set.size === 0) continue;
+            let payload;
+            try {
+                payload = await generateSignalForSymbol(symbol);
+            } catch (e) {
+                console.error(`Canlı sinyal hatası [${symbol}]:`, e.message);
+                continue;
+            }
+            if (!payload) continue;
+
+            if (lastBroadcastSignal[symbol] !== payload.signal) {
+                // Sinyal değişti: geçmişe yaz (appendSignal alarm + signalChange broadcast tetikler)
+                lastBroadcastSignal[symbol] = payload.signal;
+                appendSignal(symbol, {
+                    signal: payload.signal,
+                    confidence: payload.confidence,
+                    weightedScore: payload.weightedScore,
+                    breakdown: payload.breakdown || {},
+                    tfAlignment: payload.tfAlignment,
+                    regime: payload.regime,
+                    grade: payload.grade,
+                    price: payload.price,
+                    multiTf: payload.multiTf || {},
+                    state: payload.state
+                });
+            } else {
+                // Sinyal aynı: UI'yi canlı tutmak için hafif signalChange push'u
+                broadcast(symbol, {
+                    type: 'signalChange', symbol, signal: {
+                        signal: payload.signal,
+                        confidence: payload.confidence,
+                        weightedScore: payload.weightedScore,
+                        tfAlignment: payload.tfAlignment,
+                        regime: payload.regime,
+                        grade: payload.grade
+                    }, ts: Date.now()
+                });
+            }
+        }
+    } finally {
+        liveLoopRunning = false;
+    }
+}
+
+let liveSignalTimer = null;
+
 app.get('/api/kucoin/ticker', async (req, res) => {
     try {
         const symbol = req.query.symbol || config.activeSymbol;
@@ -846,10 +930,9 @@ async function fetchJson(url, extraHeaders = {}) {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': 'application/json',
                 ...extraHeaders
+            }
             // C-1 FIX: TLS sertifika doğrulaması kaldırıldı (MITM riski)
             // Production'da rejectUnauthorized: true (varsayılan) kullanılır
-            // },
-            // rejectUnauthorized: false
         };
         // Geliştirme için sertifika doğrulamasını atla (NODE_TLS_REJECT_UNAUTHORIZED=0 ile)
         if (process.env.NODE_ENV !== 'production') {
@@ -912,7 +995,13 @@ const server = httpServer.listen(PORT, config.server.host, () => {
     }
     console.log(`  Yenileme: ${config.refresh.dashboardMs / 1000}s`);
     console.log(`  API timeout: ${config.api.timeout / 1000}s`);
+    console.log(`  Canlı sinyal push: her ${config.refresh.dashboardMs / 1000}s (WS aboneli sembollere)`);
     console.log(`=============================================`);
+
+    // Canlı sinyal push döngüsünü başlat
+    liveSignalTimer = setInterval(() => {
+        liveSignalTick().catch(e => console.error('liveSignalTick hatası:', e.message));
+    }, config.refresh.dashboardMs);
 });
 
 

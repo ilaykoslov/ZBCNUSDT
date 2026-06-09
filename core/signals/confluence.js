@@ -4,6 +4,15 @@
 // Multi-timeframe ve multi-indicator confluence analizi
 // =====================================================
 
+// TF ağırlığını normalize et: config'de ağırlık ya düz sayı (50) ya da
+// nesne ({ kucoinType, weight, label }) olarak gelebilir. Her iki durumda da
+// sayısal ağırlık döndür, aksi halde varsayılan 25.
+function tfWeight(x) {
+    if (x == null) return 25;
+    if (typeof x === 'object') return Number(x.weight) || 25;
+    return Number(x) || 25;
+}
+
 function analyzeConfluence(timeframesData, config = {}) {
     const {
         timeframeWeights = { '1h': 50, '15m': 20, '4h': 30 },
@@ -21,7 +30,7 @@ function analyzeConfluence(timeframesData, config = {}) {
     for (const [tf, data] of Object.entries(timeframesData)) {
         if (!data || !data.signal) continue;
 
-        const w = timeframeWeights[tf] || 25;
+        const w = tfWeight(timeframeWeights[tf]);
         totalWeight += w;
 
         const signalVal = data.signal === 'BUY' ? 1 : data.signal === 'SELL' ? -1 : 0;
@@ -87,7 +96,7 @@ function analyzeConfluence(timeframesData, config = {}) {
     }
 
     // Ağırlıklı skor
-    const weightedScore = results.reduce((sum, r) => sum + (r.score || 0) * (timeframeWeights[r.tf] || 25), 0) / totalWeight;
+    const weightedScore = results.reduce((sum, r) => sum + (r.score || 0) * tfWeight(timeframeWeights[r.tf]), 0) / totalWeight;
 
     return {
         signal: finalSignal,
