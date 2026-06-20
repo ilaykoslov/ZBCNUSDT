@@ -59,14 +59,14 @@ function calculateSupertrend(candles, period = 10, multiplier = 3.0) {
         basicLowerBand[i] = hl2 - (multiplier * atrVal);
 
         // Final Upper Band
-        if (i > 0 && basicUpperBand[i] < finalUpperBand[i - 1] || candles[i - 1].close > finalUpperBand[i - 1]) {
+        if (finalUpperBand[i - 1] == null || basicUpperBand[i] < finalUpperBand[i - 1] || candles[i - 1].close > finalUpperBand[i - 1]) {
             finalUpperBand[i] = basicUpperBand[i];
         } else {
             finalUpperBand[i] = finalUpperBand[i - 1];
         }
 
         // Final Lower Band
-        if (i > 0 && basicLowerBand[i] > finalLowerBand[i - 1] || candles[i - 1].close < finalLowerBand[i - 1]) {
+        if (finalLowerBand[i - 1] == null || basicLowerBand[i] > finalLowerBand[i - 1] || candles[i - 1].close < finalLowerBand[i - 1]) {
             finalLowerBand[i] = basicLowerBand[i];
         } else {
             finalLowerBand[i] = finalLowerBand[i - 1];

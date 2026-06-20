@@ -132,7 +132,7 @@ function getVolumeProfileSignal(volumeProfile, currentPrice) {
     // PVP strength (hacim oranı)
     const totalVolume = volumeProfile.totalVolume;
     if (totalVolume > 0) {
-        const pvpRatio = pvpPrice / totalVolume;
+        const pvpRatio = volumeProfile.pvpVolume / totalVolume;
         if (pvpRatio > 0.05) {
             score += 10;
             details.push('Güçlü PVP');

@@ -336,10 +336,10 @@ function analyzeTimeframeTf(candles, tfName, appConfig) {
     const cciVal = last(cciArr);
 
     const ich = calculateIchimoku(candles);
-    const tenkan = last(ich.tenkan);
-    const kijun = last(ich.kijun);
-    const senkouA = last(ich.senkouA);
-    const senkouB = last(ich.senkouB);
+    const tenkan = ich ? last(ich.tenkan) : null;
+    const kijun = ich ? last(ich.kijun) : null;
+    const senkouA = ich ? last(ich.senkouA) : null;
+    const senkouB = ich ? last(ich.senkouB) : null;
 
     const supertrendRes = calculateSupertrend(candles);
     const supertrendVal = last(supertrendRes.supertrend);
@@ -615,15 +615,15 @@ function computeSignal({ candlesByTf, appConfig, symbol }) {
 
     const timeframeAnalyses = {};
     for (const [tf, candles] of Object.entries(candlesByTf)) {
-        const res = analyzeTimeframeTf(candles, tf, appConfig);
+        const res = analyzeTimeframeTf(candles, tf, mergedConfig);
         if (res) timeframeAnalyses[tf] = res;
     }
 
     const confluencePayload = analyzeConfluence(timeframeAnalyses, {
-        timeframeWeights: tfWeights,
-        categoryWeights: appConfig?.categoryWeights,
-        signalThresholds: appConfig?.signalThresholds,
-        confidence: appConfig?.confidence
+        timeframeWeights: finalTfWeights,
+        categoryWeights: mergedConfig?.categoryWeights,
+        signalThresholds: mergedConfig?.signalThresholds,
+        confidence: mergedConfig?.confidence
     });
 
     // regime/grade from 1h as primary if exists, else from overall
@@ -708,4 +708,4 @@ function computeSignal({ candlesByTf, appConfig, symbol }) {
     };
 }
 
-module.exports = { computeSignal };
+module.exports = { computeSignal, sma, ema, rsi, macd, bollinger, atr, adx, obv, slope };
