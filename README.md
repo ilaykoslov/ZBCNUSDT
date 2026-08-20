@@ -93,6 +93,8 @@ Sunucu, dashboard’un kullandığı veri ve işlem uç noktalarını sağlar.
 | `/api/all?symbol=ZBCNUSDT` | GET | Ticker, mum, order book ve CoinGecko verisi |
 | `/api/signal?symbol=ZBCNUSDT` | GET | Sinyal motorunun güncel çıktısı |
 | `/api/signal-history?symbol=ZBCNUSDT` | GET | Sinyal geçmişi |
+| `/api/engine-metrics?symbol=ZBCNUSDT` | GET | Veri kalitesi, cooldown, kategori hata ve öğrenme metrikleri |
+| `/api/performance` | GET | Tüm sembollerin gerçek değerlendirme performans özeti |
 | `/api/paper-trading/portfolio?symbol=ZBCNUSDT` | GET | Paper portföy özeti |
 | `/api/risk/parameters` | GET | Risk parametreleri |
 

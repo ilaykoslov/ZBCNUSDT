@@ -392,6 +392,61 @@ app.get('/api/signal-stats', (req, res) => {
     res.json(stats);
 });
 
+app.get('/api/performance', (req, res) => {
+    const requested = req.query.symbol;
+    const symbols = requested ? [requested] : activeSymbols;
+    const performance = symbols.filter(s => activeSymbols.includes(s)).map(symbol => {
+        const evalState = symbolEngine.getEvalState(symbol);
+        const hist = signalHistories[symbol] || [];
+        const total = evalState.totalEvaluated || 0;
+        const wins = evalState.successfulTrades || evalState.truePositives || 0;
+        const losses = evalState.falsePositives || 0;
+        const evaluatedAccuracy = total > 0 ? (wins / total) * 100 : null;
+        return {
+            symbol,
+            historicalAccuracy: evalState.historicalAccuracy,
+            evaluatedAccuracy,
+            totalEvaluated: total,
+            wins,
+            losses,
+            pendingSignals: hist.filter(s => s.signal === 'BUY' || s.signal === 'SELL').length - total,
+            signalsLogged: hist.length,
+            cooldown: symbolEngine.isSymbolInCooldown(evalState)
+        };
+    });
+    res.json({ generatedAt: new Date().toISOString(), performance });
+});
+
+app.get('/api/engine-metrics', (req, res) => {
+    const symbol = req.query.symbol || config.activeSymbol;
+    const evalState = symbolEngine.getEvalState(symbol);
+    const hist = signalHistories[symbol] || [];
+
+    // Veri kalitesi (data quality proxy: cached age & api latency from last fetch)
+    const cachedData = dataCaches[symbol];
+    let dataQuality = 'Unknown';
+    let dataAgeMs = -1;
+    if (cachedData) {
+        dataAgeMs = Date.now() - cachedData.timestamp;
+        dataQuality = dataAgeMs < 10000 ? 'Excellent' : dataAgeMs < 30000 ? 'Good' : dataAgeMs < 60000 ? 'Fair' : 'Poor';
+    }
+
+    res.json({
+        symbol,
+        historicalAccuracy: evalState.historicalAccuracy,
+        totalEvaluated: evalState.totalEvaluated || 0,
+        successfulTrades: evalState.successfulTrades || 0,
+        isCooldown: symbolEngine.isSymbolInCooldown(evalState),
+        cooldownUntil: evalState.cooldownUntil || null,
+        categoryErrors: evalState.categoryErrors || {},
+        signalCount: hist.length,
+        dataQuality: {
+            status: dataQuality,
+            ageMs: dataAgeMs
+        }
+    });
+});
+
 // ========================================
 // PAPER TRADING - ÇOKLU SEMBOL
 // ========================================
@@ -697,6 +752,8 @@ app.get('/api/all', async (req, res) => {
 
         const evalState = symbolEngine.getEvalState(symbol);
         responseData.historicalAccuracy = evalState.historicalAccuracy;
+        responseData.isCooldown = symbolEngine.isSymbolInCooldown(evalState);
+        responseData.categoryErrors = evalState.categoryErrors || {};
 
         const hasValidData = ticker && ticker.code === '200000';
         if (hasValidData) {

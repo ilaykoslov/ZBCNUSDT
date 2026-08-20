@@ -284,6 +284,25 @@ async function runTests() {
         if (typeof s.total !== 'number') throw new Error('Missing total');
     });
 
+    await test('Engine metrics - öğrenme ve veri kalitesi', async () => {
+        const m = await get('/api/engine-metrics?symbol=ZBCNUSDT');
+        if (m.symbol !== 'ZBCNUSDT') throw new Error('Wrong metrics symbol');
+        if (typeof m.historicalAccuracy !== 'number') throw new Error('Missing historical accuracy');
+        if (typeof m.isCooldown !== 'boolean') throw new Error('Missing cooldown state');
+        if (!m.dataQuality || typeof m.dataQuality.status !== 'string') throw new Error('Missing data quality');
+        if (!m.categoryErrors || typeof m.categoryErrors !== 'object') throw new Error('Missing category errors');
+    });
+
+    await test('Performance - tüm semboller', async () => {
+        const p = await get('/api/performance');
+        if (!Array.isArray(p.performance) || p.performance.length !== 4) throw new Error('Expected 4 symbol summaries');
+        for (const row of p.performance) {
+            if (!['ZBCNUSDT', 'PROSUSDT', 'WLFIUSDT', 'SOLUSDT'].includes(row.symbol)) throw new Error('Unknown performance symbol');
+            if (typeof row.historicalAccuracy !== 'number') throw new Error('Missing performance accuracy');
+            if (typeof row.totalEvaluated !== 'number') throw new Error('Missing evaluated count');
+        }
+    });
+
     await test('Log signal', async () => {
         const r = await post('/api/log-signal', {
             signal: 'NEUTRAL', confidence: 50, weightedScore: 0,
