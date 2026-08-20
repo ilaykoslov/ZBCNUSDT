@@ -4,7 +4,11 @@
 
 ### ZBCN Özel Sinyal Motoru ve Canlı Geri Besleme (Learning Engine)
 
-- `core/signals/zbcnEngine.js` eklendi. ZBCN'in KuCoin geçmiş verileri üzerinden ölçülen anlık volatilitesi (ATR%) baz alınarak ZBCN'e özel piyasa rejimi algılama (Volatile-Chop, Volatile-Trend, Low-Vol-Range) uygulandı.
+- `core/signals/zbcnEngine.js` güçlendirildi. ZBCN'in KuCoin geçmiş verileri üzerinden ölçülen anlık volatilitesi (ATR%) baz alınarak ZBCN'e özel piyasa rejimi algılama (Volatile-Chop, Volatile-Trend, Low-Vol-Range) uygulandı.
+- **Dinamik Eşikler (Dynamic Thresholds):** Sinyal başarısını değerlendirirken statik kâr/zarar hedefleri yerine, o anki piyasa volatilitesine (ATR) bağlı dinamik hedefler (TP: 1.5x ATR, SL: 1.0x ATR) getirildi.
+- **Sinyal Soğuma (Cooldown) Mekanizması:** Arka arkaya 3 kez başarısız (False Positive/Negative) sinyal üretildiğinde, sistemin 6 saat boyunca "Cooldown" moduna girerek yanlış sinyal tekrarını önlemesi sağlandı.
+- **Kategori Bazlı Öğrenme (Category-Level Penalty):** Hangi analiz kategorisinin (Trend, Momentum, Hacim vb.) daha çok yanıldığını tespit edip, o kategorinin ağırlığını dinamik olarak düşüren ve diğerlerine dağıtan bir makine öğrenmesi benzeri ağırlıklandırma mekanizması eklendi.
+- **Mikro-Yapı Analizi (Orderbook Microstructure):** ZBCN emir defteri (orderbook) derinliği analiz edilerek; spread %0.4'ün üzerine çıktığında sinyal skoruna ceza, alıcı/satıcı dengesizliği (imbalance) ekstrem seviyelere ulaştığında ise bonus ekleyen yeni bir katman oluşturuldu.
 - `server.js` içine arka planda çalışan (Background Evaluation Loop) bir geriye dönük test (backtest) mekanizması eklendi. Üretilen her ZBCN sinyali 4 saat sonra gelecek fiyat hareketleriyle (Take Profit %2, Stop Loss %1) değerlendirilerek başarılı/başarısız olarak etiketleniyor.
 - `zbcn_eval.json` çalışma zamanı veri dosyası ile motorun geçmiş isabet oranı (Historical Accuracy) kalıcı olarak saklanıyor.
 - İsabet oranı %40'ın altına düştüğünde, ZBCN motoru yeni üretilen sinyallerin ağırlık skorunu %20 oranında cezalandırarak yanlış sinyal tekrarını önleyen bir öğrenme (learning penalty) katmanı eklendi.

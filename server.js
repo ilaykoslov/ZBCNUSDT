@@ -760,12 +760,13 @@ app.get('/api/signal', async (req, res) => {
             }
         };
 
-        const [candles1h, candles15m, candles4h] = cacheOk
-            ? [cached.candles1h, cached.candles15m, cached.candles4h]
+        const [candles1h, candles15m, candles4h, orderbook] = cacheOk
+            ? [cached.candles1h, cached.candles15m, cached.candles4h, cached.orderbook]
             : await Promise.all([
                 fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=1hour&limit=${config.api.maxCandles}`),
                 fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=15min&limit=${config.api.maxCandles}`),
-                fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=4hour&limit=${config.api.maxCandles}`)
+                fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=4hour&limit=${config.api.maxCandles}`),
+                fetchSafe(`${config.api.kucoinBase}/market/orderbook/level1?symbol=${kucoinSym}`)
             ]);
 
         if (!candles1h || candles1h.code !== '200000') {
@@ -790,6 +791,7 @@ app.get('/api/signal', async (req, res) => {
         const payload = computeSignal({
             symbol,
             candlesByTf,
+            orderbook: orderbook && orderbook.code === '200000' ? orderbook.data : null,
             appConfig: config
         });
 
@@ -815,16 +817,44 @@ app.get('/api/signal', async (req, res) => {
                     );
                     
                     if (pendingEval) {
+                        // Calculate current ATR percentage for dynamic TP/SL
+                        let currentAtrPct = 3.0;
+                        if (payload.multiTf && payload.multiTf['1h'] && payload.multiTf['1h'].indicators && payload.multiTf['1h'].indicators.atrPct) {
+                            currentAtrPct = payload.multiTf['1h'].indicators.atrPct;
+                        }
+                        
                         // Pass the 1h candles which cover the future of that signal
-                        const outcome = zbcnEngine.evaluateSignalOutcome(pendingEval, c1h);
+                        const outcome = zbcnEngine.evaluateSignalOutcome(pendingEval, c1h, currentAtrPct);
+                        
                         if (outcome !== null) {
                             if (outcome === true) {
                                 if (pendingEval.signal === 'BUY') evalState.truePositives++;
                                 else evalState.trueNegatives++;
+                                evalState.recentFailures = 0; // Reset cooldown counter
                             } else {
                                 if (pendingEval.signal === 'BUY') evalState.falsePositives++;
                                 else evalState.falseNegatives++;
+                                
+                                evalState.recentFailures = (evalState.recentFailures || 0) + 1;
+                                
+                                // Track category errors to adjust weights
+                                if (pendingEval.breakdown) {
+                                    if (!evalState.categoryErrors) evalState.categoryErrors = { trend:0, momentum:0, volatility:0, volume:0, structure:0 };
+                                    for (const [cat, score] of Object.entries(pendingEval.breakdown)) {
+                                        // If the signal failed, and this category pushed it in the wrong direction, penalize it
+                                        if (pendingEval.signal === 'BUY' && score > 0) evalState.categoryErrors[cat]++;
+                                        if (pendingEval.signal === 'SELL' && score < 0) evalState.categoryErrors[cat]++;
+                                    }
+                                }
                             }
+                            
+                            // Activate cooldown if 3 consecutive failures
+                            if (evalState.recentFailures >= 3) {
+                                evalState.cooldownUntil = Date.now() + (6 * 60 * 60 * 1000); // 6 hours cooldown
+                                console.log(`[ZBCN Eval] 3 consecutive failures. System entering 6-hour cooldown.`);
+                                evalState.recentFailures = 0; // reset counter after triggering cooldown
+                            }
+                            
                             evalState.totalEvaluated++;
                             const totalCorrect = evalState.truePositives + evalState.trueNegatives;
                             evalState.historicalAccuracy = Math.round((totalCorrect / evalState.totalEvaluated) * 100);

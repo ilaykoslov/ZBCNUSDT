@@ -515,7 +515,17 @@ function analyzeTimeframeTf(candles, tfName, appConfig) {
     }
 
     // Regime weights
-    const baseWeights = appConfig?.categoryWeights || { trend: 30, momentum: 25, volatility: 15, volume: 15, structure: 15 };
+    let baseWeights = appConfig?.categoryWeights || { trend: 30, momentum: 25, volatility: 15, volume: 15, structure: 15 };
+    
+    // Apply dynamic category weights for ZBCN if applicable
+    if (appConfig?.activeSymbol === 'ZBCNUSDT') {
+        const evalState = zbcnEngine.getEvalState();
+        const adjusted = zbcnEngine.applyZbcnLearningPenalty(0, evalState, baseWeights);
+        if (adjusted && adjusted.weights) {
+            baseWeights = adjusted.weights;
+        }
+    }
+    
     const w = getRegimeWeights(regime, baseWeights);
 
     const weightedScore =
@@ -599,7 +609,7 @@ function analyzeTimeframeTf(candles, tfName, appConfig) {
 }
 
 // ---------- Public engine: multi-TF ----------
-function computeSignal({ candlesByTf, appConfig, symbol }) {
+function computeSignal({ candlesByTf, orderbook, appConfig, symbol }) {
     // Check for symbol-specific special settings
     const symbolConfig = appConfig?.symbols?.[symbol] || {};
     const specialSettings = symbolConfig?.specialSettings || {};
@@ -644,9 +654,27 @@ function computeSignal({ candlesByTf, appConfig, symbol }) {
     // Apply ZBCN-specific learning penalty if this is ZBCNUSDT
     if (symbol === 'ZBCNUSDT') {
         const evalState = zbcnEngine.getEvalState();
-        weightedScore = zbcnEngine.applyZbcnLearningPenalty(weightedScore, evalState);
+        const prevScore = weightedScore;
+        
+        // Get penalized score (and we already applied dynamic weights per TF above)
+        const penaltyRes = zbcnEngine.applyZbcnLearningPenalty(weightedScore, evalState, appConfig?.categoryWeights || {});
+        weightedScore = penaltyRes.score;
+        
+        // Microstructure (orderbook) analysis
+        if (orderbook) {
+            // Since we use level1 or level2, we adapt the microstructure logic
+            // level1 has bestAsk, bestBid, etc. Let's pass it as is
+            const ms = zbcnEngine.analyzeZbcnMicrostructure(orderbook);
+            if (ms.penalty < 0) {
+                weightedScore += ms.penalty; // Penalize score due to wide spread
+                if (primary && primary.details && primary.details.structure) {
+                    primary.details.structure.detail += `, ${ms.reason}`;
+                }
+            }
+        }
+        
         // Adjust confidence slightly down if penalized
-        if (weightedScore !== confluencePayload.weightedScore) {
+        if (weightedScore !== prevScore) {
             confidence = Math.max(30, confidence - 10);
         }
     }
