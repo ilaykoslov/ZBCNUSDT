@@ -1069,9 +1069,12 @@ async function loadConfig() {
 }
 
 let currentSymbol = 'ZBCNUSDT';
+let dataRequestId = 0;
 
 function switchSymbol(symbol) {
     currentSymbol = symbol;
+    dataRequestId += 1;
+    lastSignalData = null;
     // Update UI labels
     const tokenName =
         symbol === 'ZBCNUSDT' ? 'Zebec Network' :
@@ -1085,11 +1088,25 @@ function switchSymbol(symbol) {
         symbol === 'WLFIUSDT' ? 'WLFI' :
         symbol;
 
+    const dynamicTitle = symbol + ' Sinyal Terminali';
+    const heading = document.querySelector('.logo-text h1');
+    if (heading) heading.textContent = dynamicTitle;
+    document.title = symbol + ' Canlı Sinyal Dashboard';
     document.querySelector('.logo-text span').textContent = tokenName + ' / USDT • Gerçek Zamanlı';
     document.querySelector('.price-label').textContent = tokenShort + ' / USDT • Anlık Fiyat';
     const logoIcon = document.querySelector('.logo-icon');
     if (logoIcon) logoIcon.textContent = tokenShort.substring(0, 4);
     document.getElementById('dataSource').textContent = 'Proxy Sunucu (' + symbol + ')';
+    const baseVolumeLabel = document.querySelector('#volumeZbc')?.previousElementSibling;
+    if (baseVolumeLabel) baseVolumeLabel.textContent = 'Hacim (' + tokenShort + ')';
+    const quoteVolumeLabel = document.querySelector('#volumeUsdt')?.previousElementSibling;
+    if (quoteVolumeLabel) quoteVolumeLabel.textContent = 'Hacim (USDT)';
+
+    const banner = document.getElementById('alertBanner');
+    if (banner) {
+        banner.className = 'alert-banner neutral';
+        banner.textContent = 'Veriler yükleniyor: ' + symbol + '...';
+    }
 
     // Update footer links dynamically
     const kcLink = document.getElementById('kucoinLink');
@@ -1106,6 +1123,11 @@ function switchSymbol(symbol) {
         if (cgLink) cgLink.href = 'https://www.coingecko.com/en/coins/wlfi';
     }
 
+    // Canlı bağlantı varsa yeni sembole yeniden abone ol.
+    if (liveWs && liveWs.readyState === WebSocket.OPEN) {
+        liveWs.send(JSON.stringify({ type: 'subscribe', symbol: currentSymbol }));
+    }
+
     // Clear and reload
     forceRefresh();
     loadSignalHistory();
@@ -1113,16 +1135,22 @@ function switchSymbol(symbol) {
 }
 
 async function fetchAllData() {
+    const requestId = ++dataRequestId;
+    const requestSymbol = currentSymbol;
     try {
         // Çoklu sembol desteği ile veri çek
-        const [res, resMetrics] = await Promise.all([
-            fetch('/api/all?symbol=' + currentSymbol),
-            fetch('/api/engine-metrics?symbol=' + currentSymbol).catch(() => null)
-        ]);
+        const res = await fetch('/api/all?symbol=' + requestSymbol);
         if (!res.ok) throw new Error('Proxy sunucuya bağlanılamadı (HTTP ' + res.status + ')');
 
+        const json = await res.json();
+        if (requestId !== dataRequestId || requestSymbol !== currentSymbol) return;
+        if (json.error) throw new Error(json.error);
+
+        // /api/all cache'i güncellendikten sonra motor ve veri kalitesi metriklerini çek.
+        const resMetrics = await fetch('/api/engine-metrics?symbol=' + requestSymbol).catch(() => null);
         if (resMetrics && resMetrics.ok) {
             const metrics = await resMetrics.json();
+            if (requestId !== dataRequestId || requestSymbol !== currentSymbol) return;
             const dqBadge = document.getElementById('dataQualityBadge');
             if (dqBadge && metrics.dataQuality) {
                 dqBadge.style.display = 'block';
@@ -1133,16 +1161,13 @@ async function fetchAllData() {
                 else if (status === 'Good') { color = '#3b82f6'; bg = 'rgba(59,130,246,0.15)'; }
                 else if (status === 'Fair') { color = '#eab308'; bg = 'rgba(234,179,8,0.15)'; }
                 else if (status === 'Poor') { color = '#ef4444'; bg = 'rgba(239,68,68,0.15)'; }
-
-                const ageSec = Math.round(metrics.dataQuality.ageMs / 1000);
-                dqBadge.innerHTML = `Veri: ${status} <span style="opacity:0.7">(${ageSec >= 0 ? ageSec + 's' : '0s'})</span>`;
+                const ageMs = Number(metrics.dataQuality.ageMs);
+                const ageText = Number.isFinite(ageMs) && ageMs >= 0 ? `${Math.round(ageMs / 1000)}s` : 'bekleniyor';
+                dqBadge.innerHTML = `Veri: ${status} <span style="opacity:0.7">(${ageText})</span>`;
                 dqBadge.style.color = color;
                 dqBadge.style.background = bg;
             }
         }
-
-        const json = await res.json();
-        if (json.error) throw new Error(json.error);
 
         // Önbellek uyarısı
         if (json._cached) {
@@ -1277,6 +1302,8 @@ function processTicker(d) {
     const vol = parseFloat(d.volValue);
     const volZbc = parseFloat(d.vol);
     const avgPrice = parseFloat(d.averagePrice) || 0;
+    const baseVolume = document.getElementById('volumeZbc');
+    const quoteVolume = document.getElementById('volumeUsdt');
 
     document.getElementById('currentPrice').textContent = '$' + formatNumber(price, 6);
     document.getElementById('priceChange').textContent = (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%';
@@ -1285,6 +1312,8 @@ function processTicker(d) {
     document.getElementById('high24h').textContent = '$' + formatNumber(high);
     document.getElementById('low24h').textContent = '$' + formatNumber(low);
     document.getElementById('volume24h').textContent = '$' + formatCompact(vol);
+    if (baseVolume) baseVolume.textContent = Number.isFinite(volZbc) ? formatCompact(volZbc) : '--';
+    if (quoteVolume) quoteVolume.textContent = Number.isFinite(vol) ? '$' + formatCompact(vol) : '--';
 
     // M-12 FIX: avgPrice 0 ise '--' göster
     document.getElementById('open24h').textContent = avgPrice > 0 ? '$' + formatNumber(avgPrice) : '--';
@@ -2070,7 +2099,7 @@ function runAnalysis() {
         const pct = ((s + 100) / 2);
         const icon = pct >= 60 ? '✅' : pct <= 40 ? '❌' : '➖';
         const key = catKeys[name] || name.toLowerCase();
-        const detail = (result1h.details[key] && result1h.details[key].detail) || '—';
+        const detail = escapeHtml((result1h.details[key] && result1h.details[key].detail) || '—');
         return `${icon} ${name}: ${pct.toFixed(0)}% (${s.toFixed(0)}p) — ${detail}`;
     };
 
@@ -2211,116 +2240,120 @@ function setSignal(id, text, direction) {
 let chartInstance = null;
 let candleSeries = null;
 let volumeSeries = null;
+let markerApi = null;
 
 function drawSparkline(candles, finalSignal) {
     const container = document.getElementById('miniChart');
-    if (!candles || candles.length < 2) {
-        container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:20px;text-align:center;">Yeterli veri yok</div>';
+    const validCandles = Array.isArray(candles) ? candles.filter(c =>
+        c && Number.isFinite(Number(c.time)) &&
+        Number.isFinite(Number(c.open)) && Number.isFinite(Number(c.high)) &&
+        Number.isFinite(Number(c.low)) && Number.isFinite(Number(c.close)) &&
+        Number.isFinite(Number(c.volume))
+    ) : [];
+
+    if (validCandles.length < 2) {
+        if (container) container.innerHTML = '<div style="color:#64748b;font-size:12px;padding:20px;text-align:center;">Yeterli veri yok</div>';
+        return;
+    }
+    if (!container || !window.LightweightCharts) {
+        if (container) container.innerHTML = '<div style="color:#ef4444;font-size:12px;padding:20px;text-align:center;">Grafik kütüphanesi yüklenemedi</div>';
         return;
     }
 
-    if (!chartInstance) {
-        container.innerHTML = '';
-        chartInstance = LightweightCharts.createChart(container, {
-            width: container.clientWidth,
-            height: 220,
-            layout: {
-                background: { type: 'solid', color: 'transparent' },
-                textColor: '#94a3b8',
-            },
-            grid: {
-                vertLines: { color: 'rgba(148,163,184,0.05)' },
-                horzLines: { color: 'rgba(148,163,184,0.05)' },
-            },
-            rightPriceScale: {
-                borderVisible: false,
-            },
-            timeScale: {
-                borderVisible: false,
-                timeVisible: true,
-            },
-            crosshair: {
-                mode: LightweightCharts.CrosshairMode.Normal,
-            },
-        });
-
-        // Fallback for different lightweight-charts versions
-        if (typeof chartInstance.addHistogramSeries === 'function') {
-            volumeSeries = chartInstance.addHistogramSeries({
-                color: '#26a69a',
-                priceFormat: { type: 'volume' },
-                priceScaleId: '',
-                scaleMargins: { top: 0.8, bottom: 0 },
+    try {
+        if (!chartInstance) {
+            container.innerHTML = '';
+            chartInstance = LightweightCharts.createChart(container, {
+                autoSize: true,
+                width: Math.max(container.clientWidth, 320),
+                height: 220,
+                layout: {
+                    background: { type: 'solid', color: 'transparent' },
+                    textColor: '#94a3b8',
+                },
+                grid: {
+                    vertLines: { color: 'rgba(148,163,184,0.05)' },
+                    horzLines: { color: 'rgba(148,163,184,0.05)' },
+                },
+                rightPriceScale: { borderVisible: false },
+                timeScale: { borderVisible: false, timeVisible: true },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode ? LightweightCharts.CrosshairMode.Normal : 0,
+                },
             });
-        } else if (typeof chartInstance.addSeries === 'function') {
-            volumeSeries = chartInstance.addSeries(LightweightCharts.HistogramSeries, {
-                color: '#26a69a',
-                priceFormat: { type: 'volume' },
-                priceScaleId: '',
-                scaleMargins: { top: 0.8, bottom: 0 },
-            });
-        } else {
-            console.warn("HistogramSeries not found");
-        }
 
-        if (typeof chartInstance.addCandlestickSeries === 'function') {
-            candleSeries = chartInstance.addCandlestickSeries({
+            const candleOptions = {
                 upColor: '#22c55e',
                 downColor: '#ef4444',
                 borderVisible: false,
                 wickUpColor: '#22c55e',
                 wickDownColor: '#ef4444',
-            });
-        } else if (typeof chartInstance.addSeries === 'function') {
-            candleSeries = chartInstance.addSeries(LightweightCharts.CandlestickSeries, {
-                upColor: '#22c55e',
-                downColor: '#ef4444',
-                borderVisible: false,
-                wickUpColor: '#22c55e',
-                wickDownColor: '#ef4444',
-            });
-        } else {
-            console.warn("CandlestickSeries not found");
+            };
+            const volumeOptions = {
+                color: '#26a69a',
+                priceFormat: { type: 'volume' },
+                priceScaleId: 'volume',
+            };
+
+            if (typeof chartInstance.addCandlestickSeries === 'function') {
+                candleSeries = chartInstance.addCandlestickSeries(candleOptions);
+            } else if (typeof chartInstance.addSeries === 'function' && LightweightCharts.CandlestickSeries) {
+                candleSeries = chartInstance.addSeries(LightweightCharts.CandlestickSeries, candleOptions);
+            }
+
+            if (typeof chartInstance.addHistogramSeries === 'function') {
+                volumeSeries = chartInstance.addHistogramSeries(volumeOptions);
+            } else if (typeof chartInstance.addSeries === 'function' && LightweightCharts.HistogramSeries) {
+                volumeSeries = chartInstance.addSeries(LightweightCharts.HistogramSeries, volumeOptions);
+            }
+            if (volumeSeries && typeof volumeSeries.priceScale === 'function') {
+                volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+            }
         }
-    }
 
-    const chartData = candles.map(c => ({
-        time: Math.floor(c.time / 1000), // Ensure integer UNIX timestamp
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close
-    }));
+        if (!candleSeries) throw new Error('Mum serisi oluşturulamadı');
 
-    const volData = candles.map(c => ({
-        time: Math.floor(c.time / 1000),
-        value: c.volume,
-        color: c.close >= c.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'
-    }));
+        const chartData = validCandles.map(c => ({
+            time: Math.floor(Number(c.time) / 1000),
+            open: Number(c.open),
+            high: Number(c.high),
+            low: Number(c.low),
+            close: Number(c.close)
+        }));
+        const volData = validCandles.map(c => ({
+            time: Math.floor(Number(c.time) / 1000),
+            value: Number(c.volume),
+            color: Number(c.close) >= Number(c.open) ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'
+        }));
 
-    if (candleSeries) candleSeries.setData(chartData);
-    if (volumeSeries) volumeSeries.setData(volData);
+        candleSeries.setData(chartData);
+        if (volumeSeries) volumeSeries.setData(volData);
 
-    // Add signal marker on the last candle if active
-    if (candleSeries && typeof candleSeries.setMarkers === 'function') {
-        if (finalSignal === 'BUY' || finalSignal === 'SELL') {
-            const lastCandle = chartData[chartData.length - 1];
-            candleSeries.setMarkers([
-                {
-                    time: lastCandle.time,
-                    position: finalSignal === 'BUY' ? 'belowBar' : 'aboveBar',
-                    color: finalSignal === 'BUY' ? '#22c55e' : '#ef4444',
-                    shape: finalSignal === 'BUY' ? 'arrowUp' : 'arrowDown',
-                    text: finalSignal,
-                    size: 2
-                }
-            ]);
-        } else {
-            candleSeries.setMarkers([]);
+        const markers = (finalSignal === 'BUY' || finalSignal === 'SELL') ? [{
+            time: chartData[chartData.length - 1].time,
+            position: finalSignal === 'BUY' ? 'belowBar' : 'aboveBar',
+            color: finalSignal === 'BUY' ? '#22c55e' : '#ef4444',
+            shape: finalSignal === 'BUY' ? 'arrowUp' : 'arrowDown',
+            text: finalSignal,
+            size: 2
+        }] : [];
+        if (typeof candleSeries.setMarkers === 'function') {
+            candleSeries.setMarkers(markers);
+        } else if (typeof LightweightCharts.createSeriesMarkers === 'function') {
+            if (!markerApi) markerApi = LightweightCharts.createSeriesMarkers(candleSeries, markers);
+            else if (typeof markerApi.setMarkers === 'function') markerApi.setMarkers(markers);
         }
-    }
 
-    chartInstance.timeScale().fitContent();
+        if (chartInstance.timeScale) chartInstance.timeScale().fitContent();
+        if (chartInstance.resize && container.clientWidth > 0) chartInstance.resize(container.clientWidth, 220);
+    } catch (error) {
+        console.error('Grafik oluşturma hatası:', error);
+        container.innerHTML = '<div style="color:#ef4444;font-size:12px;padding:20px;text-align:center;">Grafik yüklenemedi</div>';
+        chartInstance = null;
+        candleSeries = null;
+        volumeSeries = null;
+        markerApi = null;
+    }
 }
 
 // ========== OTOMATİK YENİLEME ==========
@@ -2889,10 +2922,9 @@ window.addEventListener('load', () => {
 });
 
 window.addEventListener('resize', () => {
-    if (candleData1h.length > 0) {
-        const closes = candleData1h.map(c => c.close).slice(-48);
-        const vols = candleData1h.map(c => c.volume).slice(-48);
-        drawSparkline(closes, vols);
+    const container = document.getElementById('miniChart');
+    if (chartInstance && container && container.clientWidth > 0 && typeof chartInstance.resize === 'function') {
+        chartInstance.resize(container.clientWidth, 220);
     }
 });
 </script>

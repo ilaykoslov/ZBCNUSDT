@@ -425,9 +425,10 @@ app.get('/api/engine-metrics', (req, res) => {
     // Veri kalitesi (data quality proxy: cached age & api latency from last fetch)
     const cachedData = dataCaches[symbol];
     let dataQuality = 'Unknown';
-    let dataAgeMs = -1;
-    if (cachedData) {
-        dataAgeMs = Date.now() - cachedData.timestamp;
+    let dataAgeMs = null;
+    const cacheTimestamp = Number(cachedData?.timestamp);
+    if (Number.isFinite(cacheTimestamp) && cacheTimestamp > 0) {
+        dataAgeMs = Math.max(0, Date.now() - cacheTimestamp);
         dataQuality = dataAgeMs < 10000 ? 'Excellent' : dataAgeMs < 30000 ? 'Good' : dataAgeMs < 60000 ? 'Fair' : 'Poor';
     }
 
