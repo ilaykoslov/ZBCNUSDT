@@ -178,6 +178,95 @@
         color: #ef4444; padding: 8px 20px; border-radius: 8px; cursor: pointer;
         font-weight: 600; margin-top: 12px;
     }
+
+    /* ===== Modern Trading Terminal Theme ===== */
+    :root {
+        --bg: #070b14;
+        --surface: #0d1422;
+        --surface-2: #111b2d;
+        --surface-3: #16243a;
+        --line: rgba(148,163,184,.14);
+        --muted: #7f90a8;
+        --text: #edf4ff;
+        --accent: #67e8f9;
+        --accent-2: #818cf8;
+        --positive: #34d399;
+        --negative: #fb7185;
+        --warning: #fbbf24;
+    }
+    body {
+        background:
+            radial-gradient(circle at 8% -10%, rgba(34,211,238,.13), transparent 30%),
+            radial-gradient(circle at 92% 0%, rgba(129,140,248,.11), transparent 28%),
+            var(--bg);
+        color: var(--text);
+        letter-spacing: .01em;
+    }
+    body::before { display: none; }
+    .container { max-width: 1560px; padding: 22px 26px 36px; }
+    .top-bar {
+        min-height: 72px; padding: 13px 16px 13px 18px; margin-bottom: 18px;
+        background: rgba(13,20,34,.88); border: 1px solid var(--line); border-radius: 14px;
+        box-shadow: 0 16px 42px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .logo-icon { width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(145deg, #22d3ee, #6366f1); box-shadow: 0 0 24px rgba(34,211,238,.18); }
+    .logo-text h1 { font-size: 17px; letter-spacing: -.02em; background: linear-gradient(100deg, #e0f2fe, #67e8f9 55%, #a5b4fc); }
+    .logo-text span { color: var(--muted); }
+    .live-indicator { padding: 7px 11px; background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.2); border-radius: 9px; }
+    .live-text { font-size: 10px; letter-spacing: .1em; }
+    #symbolSelector, .top-bar button {
+        min-height: 34px; border-radius: 9px !important; border: 1px solid var(--line) !important;
+        background: var(--surface-2) !important; color: var(--text) !important; transition: .2s ease;
+    }
+    #symbolSelector:hover, .top-bar button:hover { border-color: rgba(103,232,249,.5) !important; transform: translateY(-1px); }
+    .price-hero {
+        padding: 25px 28px; margin-bottom: 18px; border-radius: 16px;
+        background: linear-gradient(120deg, rgba(13,20,34,.96), rgba(17,27,45,.88));
+        border: 1px solid var(--line); box-shadow: 0 18px 50px rgba(0,0,0,.24);
+    }
+    .price-hero::after { content: 'LIVE MARKET'; position: absolute; top: 18px; right: 24px; color: rgba(103,232,249,.55); font: 600 9px/1 Inter,sans-serif; letter-spacing: .18em; }
+    .price-label { color: var(--muted); font-size: 10px; letter-spacing: .16em; }
+    .price-big { font-size: clamp(38px, 5vw, 62px); letter-spacing: -.055em; }
+    .price-change { border-radius: 7px; font-size: 16px; }
+    .price-stats-row { gap: 0; margin-top: 24px; }
+    .stat-item { min-width: 150px; padding: 0 20px; border-left: 1px solid var(--line); }
+    .stat-item:first-child { padding-left: 0; border-left: 0; }
+    .stat-label, .card-title { color: var(--muted); letter-spacing: .13em; }
+    .stat-value { color: var(--text); font-variant-numeric: tabular-nums; }
+    .signal-card { min-width: 240px; padding: 20px; background: linear-gradient(155deg, rgba(22,36,58,.95), rgba(13,20,34,.8)); border-radius: 13px; border: 1px solid rgba(103,232,249,.18); box-shadow: 0 0 34px rgba(99,102,241,.1); }
+    .signal-label { color: var(--accent); font-size: 10px; letter-spacing: .16em; }
+    .signal-badge { font-size: 29px; margin: 10px 0; border-radius: 9px; }
+    .signal-confidence strong { color: var(--text); font-variant-numeric: tabular-nums; }
+    .grid-2, .grid-3, .grid-4 { gap: 14px; margin-bottom: 14px; }
+    .card { padding: 19px 20px; border-radius: 13px; background: linear-gradient(145deg, rgba(13,20,34,.93), rgba(17,27,45,.86)); border: 1px solid var(--line); box-shadow: 0 10px 26px rgba(0,0,0,.16); transition: border-color .2s ease, transform .2s ease; }
+    .card:hover { border-color: rgba(103,232,249,.23); transform: translateY(-1px); }
+    .card-title { margin-bottom: 14px; font-size: 10px; }
+    .indicator-row { padding: 9px 0; border-bottom-color: rgba(148,163,184,.09); }
+    .indicator-name { color: #9aaac0; font-size: 12px; }
+    .indicator-value { font-variant-numeric: tabular-nums; }
+    .market-table th { padding: 9px 10px; color: var(--muted); font-size: 10px; }
+    .market-table td { padding: 10px; border-bottom-color: rgba(148,163,184,.08); font-variant-numeric: tabular-nums; }
+    .analysis-text { color: #aab8cb; }
+    .alert-banner { margin-bottom: 14px; border-radius: 10px; }
+    .footer-data { padding: 26px 10px 10px; color: #61718a; }
+    .rsi-ring { width: 76px; height: 76px; }
+    .rsi-ring svg { width: 76px; height: 76px; }
+    .sentiment-track { box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+    button, select { font-family: inherit; }
+    @media (max-width: 900px) {
+        .container { padding: 12px 12px 26px; }
+        .top-bar { align-items: stretch; }
+        .price-hero::after { display: none; }
+        .stat-item { min-width: 50%; padding: 8px 12px; }
+        .stat-item:nth-child(odd) { padding-left: 0; border-left: 0; }
+    }
+    @media (max-width: 500px) {
+        .top-bar { padding: 12px; }
+        .logo-text h1 { font-size: 15px; }
+        .price-hero { padding: 20px 16px; }
+        .price-header { gap: 20px; }
+        .signal-card { width: 100%; }
+    }
 </style>
 </head>
 <body>
@@ -993,6 +1082,8 @@ function switchSymbol(symbol) {
 
     document.querySelector('.logo-text span').textContent = tokenName + ' / USDT • Gerçek Zamanlı';
     document.querySelector('.price-label').textContent = tokenShort + ' / USDT • Anlık Fiyat';
+    const logoIcon = document.querySelector('.logo-icon');
+    if (logoIcon) logoIcon.textContent = tokenShort.substring(0, 4);
     document.getElementById('dataSource').textContent = 'Proxy Sunucu (' + symbol + ')';
 
     // Update footer links dynamically
@@ -1171,9 +1262,13 @@ function processTicker(d) {
 }
 
 function processOrderbook(d) {
-    document.getElementById('bestBid').textContent = '$' + parseFloat(d.bestBid).toFixed(8);
-    document.getElementById('bestAsk').textContent = '$' + parseFloat(d.bestAsk).toFixed(8);
-    const spread = ((parseFloat(d.bestAsk) - parseFloat(d.bestBid)) / parseFloat(d.bestAsk) * 100);
+    // KuCoin level2_20: bids/asks dizileri; level1 fallback: bestBid/bestAsk
+    const bestBid = d && Array.isArray(d.bids) && d.bids.length ? parseFloat(d.bids[0][0]) : parseFloat(d?.bestBid);
+    const bestAsk = d && Array.isArray(d.asks) && d.asks.length ? parseFloat(d.asks[0][0]) : parseFloat(d?.bestAsk);
+    if (!Number.isFinite(bestBid) || !Number.isFinite(bestAsk)) return;
+    document.getElementById('bestBid').textContent = '$' + bestBid.toFixed(8);
+    document.getElementById('bestAsk').textContent = '$' + bestAsk.toFixed(8);
+    const spread = ((bestAsk - bestBid) / bestAsk * 100);
     document.getElementById('spread').textContent = spread.toFixed(4) + '%';
 }
 

@@ -5,7 +5,7 @@
  */
 
 const { analyzeConfluence, detectMarketRegime, getRegimeWeights, calculateTradeGrade } = require('./confluence');
-const zbcnEngine = require('./zbcnEngine');
+const symbolEngine = require('./symbolEngine');
 
 // ---------- Math helpers ----------
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -264,7 +264,7 @@ const { calculateKeltnerChannels, getKeltnerSignal } = require('../indicators/ke
 const { calculateSupertrend, getSupertrendSignal } = require('../indicators/supertrend');
 
 // ---------- Timeframe analysis ----------
-function analyzeTimeframeTf(candles, tfName, appConfig) {
+function analyzeTimeframeTf(candles, tfName, appConfig, symbol) {
     if (!candles || candles.length < 30) return null;
 
     const closes = candles.map(c => c.close);
@@ -507,25 +507,22 @@ function analyzeTimeframeTf(candles, tfName, appConfig) {
     // Regime
     const smaSlope5 = slope(sma(closes, 5), 2);
     let regime = detectMarketRegime(adxVal, bbBandwidth, atrPct, sma7Slope, smaSlope5);
-    
-    // ZBCN-specific regime override if active
-    if (appConfig?.activeSymbol === 'ZBCNUSDT') {
-        const zbcnReg = zbcnEngine.detectZbcnRegime(atrPct, adxVal);
-        if (zbcnReg) regime = zbcnReg;
-    }
+
+    // Symbol-specific regime override
+    const activeSym = symbol || appConfig?.activeSymbol || 'ZBCNUSDT';
+    const symReg = symbolEngine.detectSymbolRegime(activeSym, atrPct, adxVal);
+    if (symReg) regime = symReg;
 
     // Regime weights
     let baseWeights = appConfig?.categoryWeights || { trend: 30, momentum: 25, volatility: 15, volume: 15, structure: 15 };
-    
-    // Apply dynamic category weights for ZBCN if applicable
-    if (appConfig?.activeSymbol === 'ZBCNUSDT') {
-        const evalState = zbcnEngine.getEvalState();
-        const adjusted = zbcnEngine.applyZbcnLearningPenalty(0, evalState, baseWeights);
-        if (adjusted && adjusted.weights) {
-            baseWeights = adjusted.weights;
-        }
+
+    // Apply dynamic category weights for current symbol
+    const evalStateW = symbolEngine.getEvalState(activeSym);
+    const adjusted = symbolEngine.applyLearningPenalty(0, evalStateW, baseWeights);
+    if (adjusted && adjusted.weights) {
+        baseWeights = adjusted.weights;
     }
-    
+
     const w = getRegimeWeights(regime, baseWeights);
 
     const weightedScore =
@@ -613,7 +610,7 @@ function computeSignal({ candlesByTf, orderbook, appConfig, symbol }) {
     // Check for symbol-specific special settings
     const symbolConfig = appConfig?.symbols?.[symbol] || {};
     const specialSettings = symbolConfig?.specialSettings || {};
-    
+
     // Merge special settings with base config
     const mergedConfig = {
         ...appConfig,
@@ -622,7 +619,7 @@ function computeSignal({ candlesByTf, orderbook, appConfig, symbol }) {
         confidence: specialSettings?.confidence || appConfig?.confidence,
         indicators: specialSettings?.indicators || appConfig?.indicators
     };
-    
+
     // Use special timeframes if available, else default
     const tfWeights = specialSettings?.timeframes || appConfig?.timeframes || { '1h': 50, '15m': 20, '4h': 30 };
     const finalTfWeights = {};
@@ -632,15 +629,15 @@ function computeSignal({ candlesByTf, orderbook, appConfig, symbol }) {
 
     const timeframeAnalyses = {};
     for (const [tf, candles] of Object.entries(candlesByTf)) {
-        const res = analyzeTimeframeTf(candles, tf, appConfig);
+        const res = analyzeTimeframeTf(candles, tf, mergedConfig, symbol);
         if (res) timeframeAnalyses[tf] = res;
     }
 
     const confluencePayload = analyzeConfluence(timeframeAnalyses, {
-        timeframeWeights: tfWeights,
-        categoryWeights: appConfig?.categoryWeights,
-        signalThresholds: appConfig?.signalThresholds,
-        confidence: appConfig?.confidence
+        timeframeWeights: finalTfWeights,
+        categoryWeights: mergedConfig?.categoryWeights,
+        signalThresholds: mergedConfig?.signalThresholds,
+        confidence: mergedConfig?.confidence
     });
 
     // regime/grade from 1h as primary if exists, else from overall
@@ -650,33 +647,34 @@ function computeSignal({ candlesByTf, orderbook, appConfig, symbol }) {
 
     let weightedScore = confluencePayload.weightedScore || 0;
     let confidence = confluencePayload.confidence ?? 50;
-    
-    // Apply ZBCN-specific learning penalty if this is ZBCNUSDT
-    if (symbol === 'ZBCNUSDT') {
-        const evalState = zbcnEngine.getEvalState();
-        const prevScore = weightedScore;
-        
-        // Get penalized score (and we already applied dynamic weights per TF above)
-        const penaltyRes = zbcnEngine.applyZbcnLearningPenalty(weightedScore, evalState, appConfig?.categoryWeights || {});
-        weightedScore = penaltyRes.score;
-        
-        // Microstructure (orderbook) analysis
-        if (orderbook) {
-            // Since we use level1 or level2, we adapt the microstructure logic
-            // level1 has bestAsk, bestBid, etc. Let's pass it as is
-            const ms = zbcnEngine.analyzeZbcnMicrostructure(orderbook);
-            if (ms.penalty < 0) {
-                weightedScore += ms.penalty; // Penalize score due to wide spread
-                if (primary && primary.details && primary.details.structure) {
-                    primary.details.structure.detail += `, ${ms.reason}`;
-                }
+
+    // Apply Symbol-specific learning penalty
+    const evalState = symbolEngine.getEvalState(symbol);
+    const prevScore = weightedScore;
+
+    const penaltyRes = symbolEngine.applyLearningPenalty(weightedScore, evalState, mergedConfig?.categoryWeights || {});
+    weightedScore = penaltyRes.score;
+
+    // Microstructure (orderbook) analysis
+    if (orderbook) {
+        const ms = symbolEngine.analyzeMicrostructure(symbol, orderbook);
+        if (ms.penalty < 0) {
+            weightedScore += ms.penalty; // Penalize score due to wide spread
+            if (primary && primary.details && primary.details.structure) {
+                primary.details.structure.detail += `, ${ms.reason}`;
             }
         }
-        
-        // Adjust confidence slightly down if penalized
-        if (weightedScore !== prevScore) {
-            confidence = Math.max(30, confidence - 10);
+        if (ms.bonus > 0) {
+            weightedScore += ms.bonus;
+            if (primary && primary.details && primary.details.volume) {
+                primary.details.volume.detail += `, ${ms.reason}`;
+            }
         }
+    }
+
+    // Adjust confidence slightly down if penalized
+    if (weightedScore !== prevScore && weightedScore < prevScore) {
+        confidence = Math.max(30, confidence - 10);
     }
 
     const now = Date.now();

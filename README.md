@@ -10,8 +10,9 @@ Uygulama, piyasa verisini tek bir dashboard üzerinde görünür kılmayı ve fa
 
 | Alan | Açıklama |
 |---|---|
-| Veri kaynakları | KuCoin piyasa verileri ve CoinGecko fiyat bilgileri |
-| Analiz | RSI, MACD, SMA, EMA, Bollinger Bands, ADX, ATR, OBV ve özel göstergeler |
+| Veri kaynakları | KuCoin ticker, level2 orderbook, çoklu zaman dilimi mumları ve CoinGecko fiyat bilgileri |
+| Analiz | RSI, MACD, SMA, EMA, Bollinger Bands, ADX, ATR, OBV, Ichimoku, StochRSI, VWAP, Keltner, Supertrend, divergence ve pivotlar |
+| Sembol motoru | Her sembol için volatilite rejimi, dinamik TP/SL, cooldown, kategori öğrenme ağırlıkları ve mikro-yapı profili |
 | Zaman dilimleri | 15 dakika, 1 saat ve 4 saat |
 | Sinyal çıktısı | BUY, SELL, NEUTRAL; ayrıca WAIT, LONG, SHORT ve NO_TRADE durumları |
 | İşlem simülasyonu | Paper portföy, pozisyonlar, SL/TP, işlem geçmişi ve risk kontrolleri |
@@ -64,7 +65,7 @@ Semboller ve başlangıç paper bakiyeleri `config.js` içindeki `symbols` böl�
 | WLFIUSDT | WLFI-USDT | wlfi | 5.000 USDT |
 | SOLUSDT | SOL-USDT | solana | 5.000 USDT |
 
-Yeni sembol eklerken KuCoin sembolünü, CoinGecko kimliğini, görünen adı ve paper-trading durum dosyasını birlikte tanımlayın.
+Yeni sembol eklerken KuCoin sembolünü, CoinGecko kimliğini, görünen adı ve paper-trading durum dosyasını birlikte tanımlayın. Sembolün piyasa karakterine göre `specialSettings` altında eşik, kategori ağırlığı, zaman dilimi, güven ve indikatör ayarlarını da tanımlayın. Ortak öğrenme ve değerlendirme motoru `core/signals/symbolEngine.js` üzerinden sembol bazlı JSON durum dosyaları üretir.
 
 ## Yapılandırma
 
@@ -103,10 +104,12 @@ Tüm uç noktaların ayrıntılı listesi ve örnek payload’lar için [docs/AR
 ZBCNUSDT/
 ├── api/                 # KuCoin realtime ve API yardımcıları
 ├── core/                # Sinyal, indikatör, risk, veri ve paper-trading modülleri
+│   └── signals/         # Confluence, ortak symbolEngine ve geriye dönük ZBCN adaptörü
 ├── data/                # Çalışma zamanı JSON dosyaları
 ├── docs/                # Mimari, kurulum, indikatör ve sürüm dokümanları
 ├── tests/               # Entegrasyon testi ve sinyal şeması
-├── dashboard.html       # Dashboard arayüzü ve istemci analiz katmanı
+├── dashboard.html       # Modern trading terminali arayüzü ve istemci analiz katmanı
+├── ZBCN_ALGORITHM_DESIGN.md # Sembol motoru ve değerlendirme tasarımı
 ├── server.js            # Express proxy, cache, WebSocket ve API uç noktaları
 ├── config.js            # Merkezi yapılandırma
 └── package.json         # Script ve bağımlılık tanımları

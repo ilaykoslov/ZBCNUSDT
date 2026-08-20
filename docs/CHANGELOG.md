@@ -14,6 +14,15 @@
 - İsabet oranı %40'ın altına düştüğünde, ZBCN motoru yeni üretilen sinyallerin ağırlık skorunu %20 oranında cezalandırarak yanlış sinyal tekrarını önleyen bir öğrenme (learning penalty) katmanı eklendi.
 - Dashboard arayüzü (`dashboard.html`), backend tarafından `/api/all` üzerinden iletilen `historicalAccuracy` bilgisini canlı veri akışında (polling ve websocket uyumlu) gösterecek şekilde güncellendi. Sinyal kartına "Motor İsabeti" satırı eklendi.
 
+### Çoklu Sembol Motoru ve Dashboard Yenilemesi
+
+- ZBCN’e özel öğrenme motoru ortak `core/signals/symbolEngine.js` yapısına taşındı; PROS, WLFI ve SOL için ayrı volatilite, spread, dengesizlik, TP/SL ve öğrenme durum profilleri eklendi.
+- `zbcnEngine.js` kaldırılmadı; eski import yollarını koruyan geriye dönük uyumluluk adaptörü olarak bırakıldı.
+- `signalEngine.js`, sembolün `specialSettings` profilini tüm timeframe, confluence, rejim, güven ve kategori ağırlığı hesaplarına doğru şekilde geçiriyor.
+- KuCoin orderbook akışı `level2_20` derinliğine yükseltildi. Dashboard best bid, best ask ve spread alanları level1/level2 uyumlu hâle getirildi.
+- Dashboard, modern trading terminali temasıyla yenilendi: daha okunabilir kartlar, canlı sinyal hero alanı, sembole duyarlı logo, kontrast, responsive grid ve mobil düzen iyileştirildi.
+- Entegrasyon testi WLFI ve SOL’u da kapsayacak şekilde genişletildi; tüm semboller için canlı veri, sembol bazlı sinyal ve historical accuracy alanları doğrulanıyor.
+
 ### Dokümantasyon ve depo bakımı
 
 - Ana README; proje amacı, hızlı başlangıç, yapılandırma, API özeti, test komutları ve proje yapısını açıklayacak şekilde yeniden düzenlendi.

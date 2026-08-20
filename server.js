@@ -6,7 +6,7 @@ const http = require('http');
 const config = require('./config');
 const { PaperTradingEngine, RiskManager, DataValidator } = require('./core');
 const { computeSignal } = require('./core/signals/signalEngine');
-const zbcnEngine = require('./core/signals/zbcnEngine');
+const symbolEngine = require('./core/signals/symbolEngine');
 const { retryManager } = require('./utils/retry');
 const { sendTelegramMessage, sendDiscordMessage } = require('./utils/webhook');
 const { WebSocketServer } = require('ws');
@@ -661,7 +661,7 @@ app.get('/api/all', async (req, res) => {
 
         const [ticker, orderbook, candles1h, candles15m, candles4h, coingecko] = await Promise.all([
             fetchSafe(`${config.api.kucoinBase}/market/stats?symbol=${kucoinSym}`),
-            fetchSafe(`${config.api.kucoinBase}/market/orderbook/level1?symbol=${kucoinSym}`),
+            fetchSafe(`${config.api.kucoinBase}/market/orderbook/level2_20?symbol=${kucoinSym}`),
             fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=1hour&limit=${config.api.maxCandles}`),
             fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=15min&limit=${config.api.maxCandles}`),
             fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=4hour&limit=${config.api.maxCandles}`),
@@ -684,23 +684,19 @@ app.get('/api/all', async (req, res) => {
             validationResult = dataValidator.validateCandleData(parsed1h, '1h');
         }
 
-        const responseData = { 
-            ticker, 
-            orderbook, 
-            candles1h, 
-            candles15m, 
-            candles4h, 
-            coingecko, 
+        const responseData = {
+            ticker,
+            orderbook,
+            candles1h,
+            candles15m,
+            candles4h,
+            coingecko,
             _symbol: symbol,
-            _validation: validationResult 
+            _validation: validationResult
         };
-        
-        if (symbol === 'ZBCNUSDT') {
-            const evalState = zbcnEngine.getEvalState();
-            responseData.historicalAccuracy = evalState.historicalAccuracy;
-        } else {
-            responseData.historicalAccuracy = null;
-        }
+
+        const evalState = symbolEngine.getEvalState(symbol);
+        responseData.historicalAccuracy = evalState.historicalAccuracy;
 
         const hasValidData = ticker && ticker.code === '200000';
         if (hasValidData) {
@@ -766,7 +762,7 @@ app.get('/api/signal', async (req, res) => {
                 fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=1hour&limit=${config.api.maxCandles}`),
                 fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=15min&limit=${config.api.maxCandles}`),
                 fetchSafe(`${config.api.kucoinBase}/market/candles?symbol=${kucoinSym}&type=4hour&limit=${config.api.maxCandles}`),
-                fetchSafe(`${config.api.kucoinBase}/market/orderbook/level1?symbol=${kucoinSym}`)
+                fetchSafe(`${config.api.kucoinBase}/market/orderbook/level2_20?symbol=${kucoinSym}`)
             ]);
 
         if (!candles1h || candles1h.code !== '200000') {
@@ -796,78 +792,70 @@ app.get('/api/signal', async (req, res) => {
         });
 
         // Add historical accuracy to payload for dashboard
-        if (symbol === 'ZBCNUSDT') {
-            const evalState = zbcnEngine.getEvalState();
-            payload.historicalAccuracy = evalState.historicalAccuracy;
-        } else {
-            payload.historicalAccuracy = null;
-        }
+        const evalState = symbolEngine.getEvalState(symbol);
+        payload.historicalAccuracy = evalState.historicalAccuracy;
 
-        // ZBCN Background Evaluation Loop
-        if (symbol === 'ZBCNUSDT') {
-            setImmediate(() => {
-                try {
-                    const evalState = zbcnEngine.getEvalState();
-                    const hist = signalHistories[symbol] || [];
-                    // Find a recent signal that hasn't been evaluated yet, wait at least 4 hours
-                    const pendingEval = hist.find(s => 
-                        s.signal !== 'NEUTRAL' && 
-                        (Date.now() - s.timestamp) > 4 * 60 * 60 * 1000 &&
-                        (!evalState.lastEvaluatedTimestamp || s.timestamp > evalState.lastEvaluatedTimestamp)
-                    );
-                    
-                    if (pendingEval) {
-                        // Calculate current ATR percentage for dynamic TP/SL
-                        let currentAtrPct = 3.0;
-                        if (payload.multiTf && payload.multiTf['1h'] && payload.multiTf['1h'].indicators && payload.multiTf['1h'].indicators.atrPct) {
-                            currentAtrPct = payload.multiTf['1h'].indicators.atrPct;
-                        }
-                        
-                        // Pass the 1h candles which cover the future of that signal
-                        const outcome = zbcnEngine.evaluateSignalOutcome(pendingEval, c1h, currentAtrPct);
-                        
-                        if (outcome !== null) {
-                            if (outcome === true) {
-                                if (pendingEval.signal === 'BUY') evalState.truePositives++;
-                                else evalState.trueNegatives++;
-                                evalState.recentFailures = 0; // Reset cooldown counter
-                            } else {
-                                if (pendingEval.signal === 'BUY') evalState.falsePositives++;
-                                else evalState.falseNegatives++;
-                                
-                                evalState.recentFailures = (evalState.recentFailures || 0) + 1;
-                                
-                                // Track category errors to adjust weights
-                                if (pendingEval.breakdown) {
-                                    if (!evalState.categoryErrors) evalState.categoryErrors = { trend:0, momentum:0, volatility:0, volume:0, structure:0 };
-                                    for (const [cat, score] of Object.entries(pendingEval.breakdown)) {
-                                        // If the signal failed, and this category pushed it in the wrong direction, penalize it
-                                        if (pendingEval.signal === 'BUY' && score > 0) evalState.categoryErrors[cat]++;
-                                        if (pendingEval.signal === 'SELL' && score < 0) evalState.categoryErrors[cat]++;
-                                    }
+        // Background Evaluation Loop for all symbols
+        setImmediate(() => {
+            try {
+                const hist = signalHistories[symbol] || [];
+                // Find a recent signal that hasn't been evaluated yet, wait at least 4 hours
+                const pendingEval = hist.find(s =>
+                    s.signal !== 'NEUTRAL' &&
+                    (Date.now() - s.timestamp) > 4 * 60 * 60 * 1000 &&
+                    (!evalState.lastEvaluatedTimestamp || s.timestamp > evalState.lastEvaluatedTimestamp)
+                );
+
+                if (pendingEval) {
+                    // Calculate current ATR percentage for dynamic TP/SL
+                    let currentAtrPct = null;
+                    if (payload.multiTf && payload.multiTf['1h'] && payload.multiTf['1h'].indicators && payload.multiTf['1h'].indicators.atrPct) {
+                        currentAtrPct = payload.multiTf['1h'].indicators.atrPct;
+                    }
+
+                    // Pass the 1h candles which cover the future of that signal
+                    const outcome = symbolEngine.evaluateSignalOutcome(symbol, pendingEval, c1h, currentAtrPct);
+
+                    if (outcome !== null) {
+                        if (outcome === true) {
+                            if (pendingEval.signal === 'BUY') evalState.truePositives++;
+                            else evalState.trueNegatives++;
+                            evalState.recentFailures = 0; // Reset cooldown counter
+                        } else {
+                            if (pendingEval.signal === 'BUY') evalState.falsePositives++;
+                            else evalState.falseNegatives++;
+
+                            evalState.recentFailures = (evalState.recentFailures || 0) + 1;
+
+                            // Track category errors to adjust weights
+                            if (pendingEval.breakdown) {
+                                if (!evalState.categoryErrors) evalState.categoryErrors = { trend:0, momentum:0, volatility:0, volume:0, structure:0 };
+                                for (const [cat, score] of Object.entries(pendingEval.breakdown)) {
+                                    if (pendingEval.signal === 'BUY' && score > 0) evalState.categoryErrors[cat]++;
+                                    if (pendingEval.signal === 'SELL' && score < 0) evalState.categoryErrors[cat]++;
                                 }
                             }
-                            
-                            // Activate cooldown if 3 consecutive failures
-                            if (evalState.recentFailures >= 3) {
-                                evalState.cooldownUntil = Date.now() + (6 * 60 * 60 * 1000); // 6 hours cooldown
-                                console.log(`[ZBCN Eval] 3 consecutive failures. System entering 6-hour cooldown.`);
-                                evalState.recentFailures = 0; // reset counter after triggering cooldown
-                            }
-                            
-                            evalState.totalEvaluated++;
-                            const totalCorrect = evalState.truePositives + evalState.trueNegatives;
-                            evalState.historicalAccuracy = Math.round((totalCorrect / evalState.totalEvaluated) * 100);
-                            evalState.lastEvaluatedTimestamp = pendingEval.timestamp;
-                            zbcnEngine.saveEvalState(evalState);
-                            console.log(`[ZBCN Eval] Outcome for ${pendingEval.signal} at ${pendingEval.price}: ${outcome ? 'SUCCESS' : 'FAILED'}. Accuracy: ${evalState.historicalAccuracy}%`);
                         }
+
+                        // Activate cooldown if 3 consecutive failures
+                        if (evalState.recentFailures >= 3) {
+                            evalState.cooldownUntil = Date.now() + (6 * 60 * 60 * 1000); // 6 hours cooldown
+                            console.log(`[${symbol} Eval] 3 consecutive failures. System entering 6-hour cooldown.`);
+                            evalState.recentFailures = 0; // reset counter after triggering cooldown
+                        }
+
+                        evalState.totalEvaluated++;
+                        const totalCorrect = evalState.truePositives + evalState.trueNegatives;
+                        evalState.historicalAccuracy = Math.round((totalCorrect / evalState.totalEvaluated) * 100);
+                        evalState.lastEvaluatedTimestamp = pendingEval.timestamp;
+                        symbolEngine.saveEvalState(symbol, evalState);
+                        console.log(`[${symbol} Eval] Outcome for ${pendingEval.signal} at ${pendingEval.price}: ${outcome ? 'SUCCESS' : 'FAILED'}. Accuracy: ${evalState.historicalAccuracy}%`);
                     }
-                } catch (err) {
-                    console.error('ZBCN Eval loop error:', err.message);
                 }
-            });
-        }
+            } catch (err) {
+                console.error(`${symbol} Eval loop error:`, err.message);
+            }
+        });
 
         res.json(payload);
 

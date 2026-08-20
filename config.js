@@ -41,7 +41,15 @@ const config = {
             label: 'PROS / USDT',
             coinName: 'Prosper',
             paperTradingStateFile: './data/paperTrading_PROSUSDT.json',
-            paperTradingInitialBalance: 5000
+            paperTradingInitialBalance: 5000,
+            // PROS: düşük volatilite, range/reversal ağırlıklı profil
+            specialSettings: {
+                signalThresholds: { buy: 14, sell: -14 },
+                categoryWeights: { trend: 25, momentum: 25, volatility: 20, volume: 20, structure: 10 },
+                timeframes: { '1h': { weight: 45 }, '15m': { weight: 25 }, '4h': { weight: 30 } },
+                confidence: { baseBuy: 60, baseSell: 60, minConfidence: 35, maxConfidence: 95 },
+                indicators: { rsi: { period: 14 }, adx: { period: 14 }, atr: { period: 14 } }
+            }
         },
         'WLFIUSDT': {
             kucoinSymbol: 'WLFI-USDT',
@@ -49,7 +57,15 @@ const config = {
             label: 'WLFI / USDT',
             coinName: 'WLFI',
             paperTradingStateFile: './data/paperTrading_WLFIUSDT.json',
-            paperTradingInitialBalance: 5000
+            paperTradingInitialBalance: 5000,
+            // WLFI: orta volatilite, momentum ve breakout doğrulama profili
+            specialSettings: {
+                signalThresholds: { buy: 13, sell: -13 },
+                categoryWeights: { trend: 30, momentum: 30, volatility: 18, volume: 17, structure: 5 },
+                timeframes: { '1h': { weight: 45 }, '15m': { weight: 25 }, '4h': { weight: 30 } },
+                confidence: { baseBuy: 58, baseSell: 58, minConfidence: 35, maxConfidence: 96 },
+                indicators: { rsi: { period: 14 }, adx: { period: 14 }, atr: { period: 14 } }
+            }
         },
         'SOLUSDT': {
             kucoinSymbol: 'SOL-USDT',
@@ -59,6 +75,7 @@ const config = {
             paperTradingStateFile: './data/paperTrading_SOLUSDT.json',
             paperTradingInitialBalance: 5000,
             // SOL için özel ayarlar
+            // SOL: daha likit major coin, trend ve multi-timeframe doğrulama profili
             specialSettings: {
                 signalThresholds: { buy: 15, sell: -15 },
                 categoryWeights: { trend: 25, momentum: 30, volatility: 20, volume: 15, structure: 10 },
