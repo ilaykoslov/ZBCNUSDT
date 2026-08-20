@@ -179,4 +179,5 @@ async function test() {
 test().catch(e => {
     console.error('\nTEST ERROR:', e.message);
     console.error(e.stack?.substring(0, 500));
+    process.exitCode = 1;
 });

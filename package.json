@@ -9,6 +9,8 @@
     "dev:watch": "nodemon server.js",
     "test": "node test_signal.cjs",
     "test:full": "node test_signal.mjs",
+    "test:integration": "node tests/integration.test.js",
+    "test:all": "npm test && npm run test:full && npm run test:integration",
     "health": "node -e \"http.get('http://localhost:3456/api/health',r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>console.log(JSON.parse(d)))})\"",
     "precommit": "npm test",
     "setup": "npm install && echo '✅ Kurulum tamamlandı. npm start ile başlat.'"
@@ -27,17 +29,17 @@
     "backtest",
     "websocket"
   ],
-  "author": "SERDOBABA",
+  "author": "ilaykoslov",
   "license": "MIT",
   "type": "commonjs",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SERDOBABA/ZBCNUSDT.git"
+    "url": "git+https://github.com/ilaykoslov/ZBCNUSDT.git"
   },
   "bugs": {
-    "url": "https://github.com/SERDOBABA/ZBCNUSDT/issues"
+    "url": "https://github.com/ilaykoslov/ZBCNUSDT/issues"
   },
-  "homepage": "https://github.com/SERDOBABA/ZBCNUSDT#readme",
+  "homepage": "https://github.com/ilaykoslov/ZBCNUSDT#readme",
   "dependencies": {
     "express": "^5.2.1",
     "express-rate-limit": "^7.1.5",

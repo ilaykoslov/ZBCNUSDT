@@ -17,6 +17,8 @@ npm run dev        # Geliştirme: server.js başlat
 npm run dev:watch  # Geliştirme: nodemon ile otomatik yeniden başlatma
 npm test           # test_signal.cjs çalıştır (hızlı doğrulama)
 npm run test:full  # test_signal.mjs çalıştır (kapsamlı)
+npm run test:integration # API ve paper-trading entegrasyon testi
+npm run test:all   # tüm test gruplarını çalıştır
 npm run health     # Sunucu sağlık kontrolü
 ```
 
@@ -33,6 +35,7 @@ npm run health     # Sunucu sağlık kontrolü
 
 - **headless test:** `test_signal.cjs` — DOM mock ile client-side indikatörleri live KuCoin verisi üzerinde test eder. `npm test` ile çalışır.
 - **kapsamlı test:** `test_signal.mjs` — ES module, detaylı çıktı, tüm indikatör fonksiyonlarını ayrı ayrı raporlar.
+- **entegrasyon testi:** `tests/integration.test.js` — sunucu, API, paper trading, risk ve sınır durumlarını doğrular.
 - **manuel doğrulama:** `http://localhost:3456` açılır, tarayıcı konsolunda hata kontrolü, sinyal kartında BUY/SELL/NEUTRAL görülmeli.
 - **önbellek testi:** Sunucu loglarında `CACHE HIT` mesajı görülmeli; sayfa yenilendiğinde `_cached: true` flag'i gelmeli.
 

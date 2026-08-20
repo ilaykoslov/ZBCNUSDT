@@ -1,4 +1,6 @@
-# TODO - Canlı Dashboard (Anlık Push)
+# Geliştirme Yol Haritası
+
+> Bu dosyada üstteki canlı dashboard çalışmasının geçmiş kontrol listesi korunur. Yeni geliştirmeler aşağıdaki yol haritasında takip edilir.
 
 ## 1) Planı uygula
 - [ ] Server tarafına WebSocket (ws) endpoint ekle
@@ -41,3 +43,34 @@
 - [x] payload schema validation için `tests/test_schema.json` referans standardize edildi
 - [x] rate-limit/timeout test altyapısı mevcut (`express-rate-limit` + timeout testleri)
 
+
+
+## Sonraki geliştirmeler
+
+### Sinyal motoru
+
+- [ ] Client-side analiz ile backend sinyal motoru sonuçlarını aynı test verisi üzerinde karşılaştırmak.
+- [ ] Eşik, ağırlık ve rejim kararlarını taşınabilir strateji yapılandırmasına dönüştürmek.
+- [ ] Sembol ve zaman dilimi bazlı sinyal cooldown mekanizması eklemek.
+- [ ] Geçmiş veriler üzerinde otomatik backtest raporu üretmek.
+
+### Veri güvenilirliği
+
+- [ ] KuCoin rate-limit yanıtları için `Retry-After` desteği eklemek.
+- [ ] Harici API yanıtlarına şema doğrulaması uygulamak.
+- [ ] JSON çalışma zamanı dosyaları için atomik yazma ve bozulma kurtarma akışı eklemek.
+- [ ] Cache durumunu sembol ve zaman dilimi bazında ayrıntılandırmak.
+
+### Dashboard deneyimi
+
+- [ ] Sinyal, rejim, risk ve veri tazeliğini tek özet kartında birleştirmek.
+- [ ] Mobil görünümde tablo ve grafik kullanılabilirliğini iyileştirmek.
+- [ ] Sembol ve görünüm tercihlerini yerel olarak saklamak.
+- [ ] WebSocket bağlantı durumunu erişilebilir bir durum göstergesiyle sunmak.
+
+### Operasyon ve kalite
+
+- [ ] API ve UI için ayrı smoke test senaryoları eklemek.
+- [ ] Log seviyelerini yapılandırılabilir hâle getirmek.
+- [ ] Docker healthcheck ve graceful shutdown davranışını doğrulamak.
+- [ ] Bağımlılık güncellemelerini CI içinde düzenli olarak doğrulamak.

@@ -846,15 +846,8 @@ async function fetchJson(url, extraHeaders = {}) {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': 'application/json',
                 ...extraHeaders
-            // C-1 FIX: TLS sertifika doğrulaması kaldırıldı (MITM riski)
-            // Production'da rejectUnauthorized: true (varsayılan) kullanılır
-            // },
-            // rejectUnauthorized: false
+            }
         };
-        // Geliştirme için sertifika doğrulamasını atla (NODE_TLS_REJECT_UNAUTHORIZED=0 ile)
-        if (process.env.NODE_ENV !== 'production') {
-            opts.rejectUnauthorized = false;
-        }
 
         const req = mod.request(opts, (res) => {
             let data = '';

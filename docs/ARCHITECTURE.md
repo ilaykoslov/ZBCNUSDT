@@ -247,4 +247,4 @@ KuCoin WebSocket (wss://ws-api.kucoin.com/)
 
 ## 📝 Lisans
 
-MIT License - SERDOBABA
+MIT License - ilaykoslov

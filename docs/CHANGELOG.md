@@ -1,5 +1,15 @@
 # ZBCNUSDT - Değişiklik Günlüğü
 
+## [Unreleased] - 2026-08-20
+
+### Dokümantasyon ve depo bakımı
+
+- Ana README; proje amacı, hızlı başlangıç, yapılandırma, API özeti, test komutları ve proje yapısını açıklayacak şekilde yeniden düzenlendi.
+- Kurulum, mimari ve dokümantasyon indeksleri güncellendi; `CONTRIBUTING.md` ve `LICENSE` dosyaları eklendi.
+- `TODO.md`, geçmiş çalışma kontrol listesi ile gelecek geliştirme yol haritasını ayıracak şekilde düzenlendi.
+- `package.json` içindeki depo sahibi, repository, issue ve homepage bağlantıları güncel GitHub adresine taşındı.
+- `test:integration` ve `test:all` npm script’leri dokümantasyonla uyumlu hâle getirildi.
+
 ## [2.2.0] - 2026-05-27
 
 ### 🎉 Yeni Özellikler

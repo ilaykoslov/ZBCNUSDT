@@ -1,61 +1,35 @@
-# ZBCNUSDT - Dokümantasyon
+# Dokümantasyon Merkezi
 
-## 📚 İçindekiler
+Bu klasör, ZBCNUSDT Sinyal Terminali’nin kurulumu, mimarisi ve teknik analiz katmanı için proje içi referans dokümanlarını içerir.
 
-1. [Ana README](../README.md) - Genel proje açıklaması
-2. [Mimari](ARCHITECTURE.md) - Sistem mimarisi ve yapı
-3. [İndikatörler](INDICATORS.md) - Tüm indikatörler ve formüller
-4. [Kurulum](SETUP.md) - Kurulum ve yapılandırma
-5. [Değişiklikler](CHANGELOG.md) - Versiyon geçmişi
+| Belge | İçerik |
+|---|---|
+| [Ana README](../README.md) | Projenin amacı, hızlı başlangıç, komutlar ve API özeti |
+| [Kurulum ve yapılandırma](SETUP.md) | Ortam değişkenleri, Docker, webhook ve operasyon notları |
+| [Mimari](ARCHITECTURE.md) | Veri akışı, sunucu katmanları, WebSocket ve API davranışları |
+| [İndikatörler](INDICATORS.md) | Kullanılan teknik göstergeler ve sinyal hesaplama yaklaşımı |
+| [Değişiklik günlüğü](CHANGELOG.md) | Sürümler ve önemli geliştirmeler |
+| [Katkı rehberi](../CONTRIBUTING.md) | Branch, test, commit ve pull request kuralları |
 
-## 🚀 Hızlı Başlangıç
+## Geliştirme akışı
 
-### Kurulum
+Yerel geliştirme için önce bağımlılıkları kurun, ardından sunucuyu başlatın ve değişiklikleri test edin:
+
 ```bash
 npm install
-npm start
+npm run dev
+npm test
+npm run test:full
+npm run test:integration
 ```
 
-### Erişim
-```
-http://localhost:3456
-```
+Entegrasyon testleri çalışan bir sunucu bekler. Testlerin tamamını tek komutla çalıştırmak için `npm run test:all` kullanılabilir.
 
-## 📊 Özellikler
+## Teknik kaynaklar
 
-- ✅ 15+ Teknik İndikatör
-- ✅ Multi-Timeframe Confluence (15m/1h/4h)
-- ✅ Real-time Dashboard
-- ✅ Sinyal Geçmişi
-- ✅ Backtest Modülü
-- ✅ WebSocket Entegrasyonu
-- ✅ Telegram/Discord Webhook
+- [KuCoin API Documentation](https://www.kucoin.com/docs)
+- [CoinGecko API Documentation](https://docs.coingecko.com/)
+- [Express.js Documentation](https://expressjs.com/)
+- [WebSocket API](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)
 
-## 📁 Proje Yapısı
-
-```
-ZBCNUSDT/
-├── docs/                  # Dokümantasyon
-│   ├── README.md         # Bu dosya
-│   ├── ARCHITECTURE.md   # Mimari
-│   ├── INDICATORS.md     # İndikatörler
-│   ├── SETUP.md          # Kurulum
-│   └── CHANGELOG.md      # Değişiklikler
-├── core/                  # Core modüller
-├── api/                   # API modülleri
-├── utils/                 # Yardımcı modüller
-├── server.js              # Sunucu
-├── dashboard.html         # Dashboard
-└── package.json           # Bağımlılıklar
-```
-
-## 🔗 İlgili Kaynaklar
-
-- [KuCoin API](https://docs.kucoin.com/)
-- [CoinGecko API](https://www.coingecko.com/en/api)
-- [Express.js](https://expressjs.com/)
-- [WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)
-
-## 📝 Lisans
-
-MIT License - SERDOBABA
+> Dokümantasyon ile kod davranışı arasında fark oluşursa önce testleri ve `config.js` dosyasını kontrol edin; davranış değişikliğini ilgili dokümana da yansıtın.

@@ -147,6 +147,19 @@ npm test
 npm run test:full
 ```
 
+### Entegrasyon Testi
+Sunucu ayrı bir terminalde çalışırken API ve paper-trading akışını doğrular:
+
+```bash
+npm run test:integration
+```
+
+Tüm test gruplarını arka arkaya çalıştırmak için:
+
+```bash
+npm run test:all
+```
+
 ### Sağlık Kontrolü
 ```bash
 npm run health
@@ -220,4 +233,4 @@ kill -9 <PID>
 
 ## 📝 Lisans
 
-MIT License - SERDOBABA
+MIT License - ilaykoslov

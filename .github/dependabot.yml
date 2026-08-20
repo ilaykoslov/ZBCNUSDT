@@ -22,7 +22,7 @@ updates:
       - dependency-name: 'express'
         update-types: ['version-update:semver-major']  # Major güncellemeleri elle yap
     reviewers:
-      - 'SERDOBABA'
+      - 'ilaykoslov'
 
   - package-ecosystem: 'github-actions'
     directory: '/'

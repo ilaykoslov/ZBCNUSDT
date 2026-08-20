@@ -28,29 +28,32 @@ jobs:
       - name: 📦 Bağımlılıkları yükle
         run: npm ci
 
-      - name: 🔍 Lint kontrol (ESLint)
+      - name: 🔍 Sözdizimi kontrolü
         run: |
-          npm install eslint --save-dev
-          npx eslint server.js config.js || echo "Lint uyarıları var (blok değil)"
-        continue-on-error: true
+          node --check server.js
+          node --check config.js
+          node --check test_signal.cjs
+          node --check test_signal.mjs
 
-      - name: 🚀 Sunucuyu başlat
+      - name: 🚀 Sunucuyu başlat ve testleri çalıştır
         run: |
-          node server.js &
+          node server.js > /tmp/zbcnusdt-ci-server.log 2>&1 &
           SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
           echo "Sunucu PID: $SERVER_PID"
           sleep 3
-          echo "Sunucu testi..."
-          curl -s http://localhost:3456/api/health | head -c 500
+          curl --fail --silent http://localhost:3456/api/health | head -c 500
           echo ""
-          kill $SERVER_PID 2>/dev/null || true
+          npm test
+          npm run test:full
+          npm run test:integration
 
       - name: 📝 Sözleşme kontrolü
         run: |
           echo "✅ package.json kontrol ediliyor..."
           node -e "const p = require('./package.json'); console.log('İsim:', p.name, '| Versiyon:', p.version)"
           echo "✅ config.js kontrol ediliyor..."
-          node -e "const c = require('./config.js'); console.log('Port:', c.server.port, '| Sembol:', c.api.symbol)"
+          node -e "const c = require('./config.js'); console.log('Port:', c.server.port, '| Sembol:', c.activeSymbol)"
 
   security:
     name: 🔒 Güvenlik Taraması

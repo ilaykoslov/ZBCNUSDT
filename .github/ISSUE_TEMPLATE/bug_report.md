@@ -3,7 +3,7 @@ name: 🐛 Hata Raporu
 about: Uygulamada bir hata mı buldun? Rapor et.
 title: '[HATA] '
 labels: bug
-assignees: SERDOBABA
+assignees: ilaykoslov
 
 ---
 

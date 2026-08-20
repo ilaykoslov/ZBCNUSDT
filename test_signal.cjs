@@ -95,4 +95,7 @@ async function test() {
     }
 }
 
-test().catch(e => console.error('\nERROR:', e.message, e.stack?.substring(0, 300)));
+test().catch(e => {
+    console.error('\nERROR:', e.message, e.stack?.substring(0, 300));
+    process.exitCode = 1;
+});

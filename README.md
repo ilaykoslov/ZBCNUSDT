@@ -1,349 +1,130 @@
-# ZBCNUSDT & PROSUSDT Sinyal Terminali
+# ZBCNUSDT Sinyal Terminali
 
-Gerçek zamanlı kripto para sinyal terminali. Multi-timeframe confluence analizi, 15+ teknik indikatör, paper trading simülasyonu ve risk yönetimi.
+**ZBCNUSDT Sinyal Terminali**, KuCoin ve CoinGecko verilerini bir araya getirerek teknik analiz, çoklu zaman dilimi uyumu, sinyal geçmişi ve güvenli paper-trading simülasyonu sunan Node.js tabanlı bir dashboard uygulamasıdır.
 
-## 🚀 Hızlı Başlangıç
+> Bu proje eğitim ve araştırma amaçlıdır. Üretilen sinyaller yatırım tavsiyesi değildir. Varsayılan işlem modu **paper trading** olup gerçek emir gönderimi kapalıdır.
 
-```bash
-# Bağımlılıkları yükle
-npm install
+## Projenin amacı
 
-# Geliştirme modunda başlat
-npm run dev
+Uygulama, piyasa verisini tek bir dashboard üzerinde görünür kılmayı ve farklı teknik göstergeleri ortak bir sinyal puanında birleştirmeyi hedefler. Sistem; 15 dakika, 1 saat ve 4 saat zaman dilimlerini karşılaştırır, piyasa rejimini sınıflandırır ve sinyal geçmişini dosya tabanlı olarak saklar.
 
-# Tarayıcıda aç
-# http://localhost:3456
-```
+| Alan | Açıklama |
+|---|---|
+| Veri kaynakları | KuCoin piyasa verileri ve CoinGecko fiyat bilgileri |
+| Analiz | RSI, MACD, SMA, EMA, Bollinger Bands, ADX, ATR, OBV ve özel göstergeler |
+| Zaman dilimleri | 15 dakika, 1 saat ve 4 saat |
+| Sinyal çıktısı | BUY, SELL, NEUTRAL; ayrıca WAIT, LONG, SHORT ve NO_TRADE durumları |
+| İşlem simülasyonu | Paper portföy, pozisyonlar, SL/TP, işlem geçmişi ve risk kontrolleri |
+| Güncelleme | Polling yedeğiyle birlikte WebSocket tabanlı canlı güncelleme |
+| Bildirim | Telegram ve Discord webhook desteği |
 
-## 📋 İçindekiler
-
-- [Özellikler](#özellikler)
-- [Desteklenen Semboller](#desteklenen-semboller)
-- [Kurulum](#kurulum)
-- [Kullanım](#kullanım)
-- [Test](#test)
-- [Mimari](#mimari)
-- [API Referansı](#api-referansı)
-- [Sinyal Formatı](#sinyal-formatı)
-- [Paper Trading](#paper-trading)
-- [Güvenlik](#güvenlik)
-- [Lisans](#lisans)
-
-## ✨ Özellikler
-
-| Kategori | Özellik |
-|----------|---------|
-| **📊 Analiz** | 15+ teknik indikatör (RSI, MACD, SMA, BB, ADX, StochRSI, OBV, ATR, Divergence, Ichimoku, Williams %R, CCI, VWAP, Volume Profile) |
-| **⏱️ Multi-TF** | 3 zaman dilimi (15dk / 1s / 4s) ağırlıklı confluence |
-| **🎯 Sinyal Motoru** | 5 kategorili skorlama (Trend, Momentum, Volatilite, Hacim, Yapı) |
-| **🏷️ Trade Grade** | S/A/B/C/NT not sistemi + işlem önerisi |
-| **🌡️ Rejim Tespiti** | Trend-Up/Down, Range, Chop otomatik tespiti |
-| **⚖️ Dinamik Ağırlık** | Rejime göre kategori ağırlıkları otomatik ayarlanır |
-| **🔄 State Machine** | LONG/SHORT/WAIT/NO_TRADE - false signal reduction |
-| **💼 Paper Trading** | Sanal portföy, SL/TP, işlem geçmişi, onay sistemi |
-| **⚠️ Risk Yönetimi** | Pozisyon boyutlandırma, Kelly Criterion, trailing stop |
-| **🔔 Webhook** | Telegram, Discord, Email bildirimleri |
-| **📡 WebSocket** | Gerçek zamanlı fiyat akışı (opsiyonel) |
-| **📈 Backtest** | RSI/SMA/MACD strateji testleri |
-
-## 🪙 Desteklenen Semboller
-
-| Sembol | KuCoin | CoinGecko | PT Bakiye |
-|--------|--------|-----------|-----------|
-| **ZBCNUSDT** | ZBCN-USDT | zebec-network | $10,000 |
-| **PROSUSDT** | PROS-USDT | pros | $5,000 |
-
-Yeni sembol eklemek için `config.js` → `symbols` bölümünü güncelleyin.
-
-## 📦 Kurulum
+## Hızlı başlangıç
 
 ### Gereksinimler
-- Node.js >= 18.0.0
-- npm >= 9.0.0
 
-### Adımlar
+- Node.js 18 veya daha yeni bir sürüm
+- npm 9 veya daha yeni bir sürüm
+- KuCoin ve CoinGecko uç noktalarına internet erişimi
+
+### Kurulum
 
 ```bash
-# 1. Projeyi klonla
-git clone https://github.com/SERDOBABA/ZBCNUSDT.git
+git clone https://github.com/ilaykoslov/ZBCNUSDT.git
 cd ZBCNUSDT
-
-# 2. Bağımlılıkları yükle
 npm install
-
-# 3. Ortam değişkenlerini ayarla (opsiyonel)
 cp .env.example .env
-
-# 4. Başlat
 npm start
 ```
 
-### Docker ile
+Tarayıcıdan [http://localhost:3456](http://localhost:3456) adresini açın. Geliştirme sırasında `npm run dev` komutu da kullanılabilir.
 
-```bash
-docker-compose up --build
-```
+## Komutlar
 
-## 🎮 Kullanım
+| Komut | Kullanım amacı |
+|---|---|
+| `npm start` | Üretim benzeri sunucu başlatma |
+| `npm run dev` | Yerel geliştirme sunucusu |
+| `npm run dev:watch` | Dosya değişikliklerinde otomatik yeniden başlatma |
+| `npm test` | Dashboard analiz fonksiyonlarını hızlı test etme |
+| `npm run test:full` | Geniş kapsamlı indikatör ve analiz testi |
+| `npm run test:integration` | Sunucu, API, paper trading ve risk uç noktalarını test etme |
+| `npm run test:all` | Tüm test gruplarını sırasıyla çalıştırma |
+| `npm run health` | Çalışan sunucunun sağlık durumunu sorgulama |
 
-### Dashboard
-`http://localhost:3456` adresinde tam ekran dashboard:
+`npm test`, `npm run test:full` ve entegrasyon testleri veri uç noktalarına veya çalışan sunucuya ihtiyaç duyabilir. Entegrasyon testinden önce `npm start` komutunu ayrı bir terminalde çalıştırın.
 
-1. **Sinyal Paneli** - Canlı BUY/SELL/NEUTRAL sinyalleri
-2. **İndikatörler** - RSI, MACD, SMA, BB, ADX, StochRSI
-3. **Multi-Timeframe** - 15dk/1s/4s uyum analizi
-4. **Paper Trading** - Sanal işlemler, portföy takibi
-5. **Sinyal Geçmişi** - Son sinyal kayıtları
+## Desteklenen semboller
 
-### Sembol Değiştirme
-Dashboard üst kısmındaki dropdown ile ZBCNUSDT ↔ PROSUSDT arasında geçiş yapın.
+Semboller ve başlangıç paper bakiyeleri `config.js` içindeki `symbols` bölümünden yönetilir.
 
-### Paper Trading
-1. Dashboard'un alt kısmındaki **Paper Trading** panelini genişletin
-2. İşlem türünü seçin (AL / SAT)
-3. "İşlem Yap" butonuna tıklayın veya otomatik sinyal takibi için "🤖 Otomatik İşlem" kullanın
-4. Pozisyonları görüntüleyin, SL/TP kontrol edin
-5. **Varsayılan: PAPER mod** - gerçek işlem yapılmaz
+| Sembol | KuCoin karşılığı | CoinGecko kimliği | Başlangıç bakiyesi |
+|---|---|---|---:|
+| ZBCNUSDT | ZBCN-USDT | zebec-network | 10.000 USDT |
+| PROSUSDT | PROS-USDT | pharos-network | 5.000 USDT |
+| WLFIUSDT | WLFI-USDT | wlfi | 5.000 USDT |
+| SOLUSDT | SOL-USDT | solana | 5.000 USDT |
 
-## 🧪 Test
+Yeni sembol eklerken KuCoin sembolünü, CoinGecko kimliğini, görünen adı ve paper-trading durum dosyasını birlikte tanımlayın.
 
-```bash
-# Hızlı test (DOM mock ile client-side indikatörler)
-npm test
+## Yapılandırma
 
-# Kapsamlı test (ES module, tüm indikatörler)
-npm run test:full
+Ortak analiz ve sunucu ayarları `config.js` dosyasındadır. Hassas bilgiler `.env` dosyasından okunmalıdır; `.env` dosyası Git’e gönderilmemelidir.
 
-# Entegrasyon testi (server çalışıyor olmalı)
-npm run test:integration
+| Değişken | Varsayılan | Açıklama |
+|---|---|---|
+| `PORT` | `3456` | HTTP sunucusunun portu |
+| `HOST` | `0.0.0.0` | Sunucunun dinlediği adres |
+| `ACTIVE_SYMBOL` | `ZBCNUSDT` | Başlangıçta seçilen sembol |
+| `PAPER_TRADING_MODE` | `paper` | İşlem modu; varsayılan güvenli mod |
+| `ALLOWED_ORIGINS` | `*` | CORS kaynakları |
+| `ALERTS_ENABLED` | kapalı | Bildirim sistemini etkinleştirir |
 
-# Tüm testler
-npm run test:all
+Telegram, Discord veya canlı işlem entegrasyonlarını etkinleştirmeden önce `.env.example` dosyasını ve [SETUP.md](docs/SETUP.md) rehberini inceleyin.
 
-# Sağlık kontrolü
-npm run health
-```
+## API özeti
 
-### Test Kapsamı
-- **Unit test**: İndikatör hesaplamaları, sinyal mantığı
-- **Integration test**: API endpoint'leri, paper trading, risk yönetimi
-- **Backtest**: RSI/SMA/MACD stratejileri
-- **Schema validation**: JSON sinyal formatı doğrulama
+Sunucu, dashboard’un kullandığı veri ve işlem uç noktalarını sağlar.
 
-## 🏗️ Mimari
+| Endpoint | Metot | Açıklama |
+|---|---:|---|
+| `/api/health` | GET | Sunucu, cache ve sembol durumu |
+| `/api/config` | GET | İstemciye gönderilen yapılandırma |
+| `/api/all?symbol=ZBCNUSDT` | GET | Ticker, mum, order book ve CoinGecko verisi |
+| `/api/signal?symbol=ZBCNUSDT` | GET | Sinyal motorunun güncel çıktısı |
+| `/api/signal-history?symbol=ZBCNUSDT` | GET | Sinyal geçmişi |
+| `/api/paper-trading/portfolio?symbol=ZBCNUSDT` | GET | Paper portföy özeti |
+| `/api/risk/parameters` | GET | Risk parametreleri |
 
-```
+Tüm uç noktaların ayrıntılı listesi ve örnek payload’lar için [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) dosyasına bakın.
+
+## Proje yapısı
+
+```text
 ZBCNUSDT/
-├── server.js              # Express sunucu, proxy, cache, rate limiting
-├── config.js              # Merkezi yapılandırma
-├── dashboard.html         # Tek dosya dashboard (CSS + HTML + JS)
-├── package.json           # Bağımlılıklar ve script'ler
-├── .env.example           # Ortam değişkenleri şablonu
-├── Dockerfile             # Docker build
-├── docker-compose.yml     # Docker compose
-├── AGENTS.md              # AI asistan yönergeleri
-│
-├── core/                  # Ana modüller
-│   ├── index.js           # Modül ihracatı
-│   ├── paperTrading/      # Paper trading motoru
-│   │   └── index.js       #   Portföy, pozisyon, SL/TP
-│   ├── risk/              # Risk yönetimi
-│   │   └── index.js       #   Pozisyon boyutlandırma, Kelly
-│   ├── data/              # Veri doğrulama
-│   │   └── index.js       #   Gap detection, interpolasyon
-│   ├── backtest/          # Backtest modülü
-│   │   └── index.js       #   RSI/SMA/MACD stratejileri
-│   ├── signals/           # Sinyal motoru
-│   │   ├── index.js       #   Modül ihracatı
-│   │   └── confluence.js  #   Confluence, rejim, grading
-│   └── indicators/        # Teknik indikatörler
-│       ├── index.js       #   Modül ihracatı
-│       ├── ichimoku.js    #   Ichimoku Cloud
-│       ├── williamsR.js   #   Williams %R
-│       ├── cci.js         #   Commodity Channel Index
-│       ├── vwap.js        #   Volume Weighted Average Price
-│       └── volumeProfile.js # Volume Profile
-│
-├── api/                   # API modülleri
-│   ├── index.js           # Modül ihracatı
-│   └── realtime.js        # WebSocket entegrasyonu
-│
-├── utils/                 # Yardımcı modüller
-│   ├── index.js           # Modül ihracatı
-│   ├── retry.js           # Retry, backoff, circuit breaker
-│   └── webhook.js         # Telegram/Discord/Email bildirimleri
-│
-├── tests/                 # Test dosyaları
-│   ├── integration.test.js # Entegrasyon testleri
-│   └── test_schema.json   # JSON sinyal formatı şeması
-│
-├── docs/                  # Dokümantasyon
-│   ├── README.md          # Doküman ana sayfası
-│   ├── ARCHITECTURE.md    # Mimari detayları
-│   ├── INDICATORS.md      # İndikatör formülleri
-│   ├── SETUP.md           # Kurulum rehberi
-│   └── CHANGELOG.md       # Değişiklik günlüğü
-│
-└── data/                  # Çalışma zamanı verileri
-    ├── .gitkeep           # Klasörü koru
-    ├── signals_ZBCNUSDT.json  # ZBCN sinyal geçmişi
-    ├── signals_PROSUSDT.json  # PROS sinyal geçmişi
-    ├── paperTrading_ZBCNUSDT.json  # ZBCN PT durumu
-    └── paperTrading_PROSUSDT.json  # PROS PT durumu
+├── api/                 # KuCoin realtime ve API yardımcıları
+├── core/                # Sinyal, indikatör, risk, veri ve paper-trading modülleri
+├── data/                # Çalışma zamanı JSON dosyaları
+├── docs/                # Mimari, kurulum, indikatör ve sürüm dokümanları
+├── tests/               # Entegrasyon testi ve sinyal şeması
+├── dashboard.html       # Dashboard arayüzü ve istemci analiz katmanı
+├── server.js            # Express proxy, cache, WebSocket ve API uç noktaları
+├── config.js            # Merkezi yapılandırma
+└── package.json         # Script ve bağımlılık tanımları
 ```
 
-### Veri Akışı
+## Geliştirme ilkeleri
 
-```
-KuCoin API ──► server.js (proxy+cache) ──► dashboard.html (client-side analiz)
-                      │                           │
-                      ▼                           ▼
-              CoinGecko API                  Paper Trading API
-                      │                      (/api/paper-trading/*)
-                      ▼                           │
-              data/signals_*.json                 ▼
-                                            data/paperTrading_*.json
-```
+Kod değişikliklerinde küçük ve geri alınabilir commit’ler tercih edilir. Yeni endpoint veya sinyal alanı eklenirse ilgili test, README/API dokümanı ve gerekirse `tests/test_schema.json` birlikte güncellenmelidir. Gerçek para ile işlem yapmadan önce paper-trading akışı ve risk kontrolleri doğrulanmalıdır.
 
-## 📡 API Referansı
+Katkı süreci için [CONTRIBUTING.md](CONTRIBUTING.md), ayrıntılı kurulum için [docs/SETUP.md](docs/SETUP.md), mimari için [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ve indikatör açıklamaları için [docs/INDICATORS.md](docs/INDICATORS.md) dosyalarını okuyun.
 
-### Sağlık ve Yapılandırma
+## Lisans
 
-| Endpoint | Metod | Açıklama |
-|----------|-------|----------|
-| `/api/health` | GET | Sunucu durumu, cache yaşı, semboller |
-| `/api/config` | GET | Client yapılandırması |
-| `/api/signal-history?symbol=&limit=` | GET | Sinyal geçmişi |
-| `/api/signal-stats?symbol=` | GET | Sinyal istatistikleri |
-| `/api/log-signal` | POST | Sinyal kaydet |
+Bu proje MIT lisansı ile yayımlanmıştır. Ayrıntılar için [LICENSE](LICENSE) dosyasına bakın.
 
-### Paper Trading
+## Kaynaklar
 
-| Endpoint | Metod | Açıklama |
-|----------|-------|----------|
-| `/api/paper-trading/portfolio?symbol=` | GET | Portföy özeti |
-| `/api/paper-trading/positions?symbol=` | GET | Açık pozisyonlar |
-| `/api/paper-trading/pending?symbol=` | GET | Bekleyen onaylar |
-| `/api/paper-trading/history?symbol=&limit=` | GET | İşlem geçmişi |
-| `/api/paper-trading/execute` | POST | İşlem aç |
-| `/api/paper-trading/approve` | POST | Emir onayla |
-| `/api/paper-trading/reject` | POST | Emir reddet |
-| `/api/paper-trading/close` | POST | Pozisyon kapat |
-| `/api/paper-trading/check-sl-tp` | POST | SL/TP kontrol |
-| `/api/paper-trading/reset` | POST | Sıfırla |
-| `/api/paper-trading/set-mode` | POST | Mod değiştir |
-
-### Risk Yönetimi
-
-| Endpoint | Metod | Açıklama |
-|----------|-------|----------|
-| `/api/risk/parameters` | GET/POST | Risk parametreleri |
-| `/api/risk/calculate-position` | POST | Pozisyon hesapla |
-| `/api/risk/validate-trade` | POST | Trade doğrulama |
-| `/api/risk/check-pause` | GET | Trading duraklatma kontrolü |
-| `/api/risk/daily-stats` | GET | Günlük istatistikler |
-| `/api/risk/update-pnl` | POST | Günlük PnL güncelle |
-
-### Veri Proxy
-
-| Endpoint | Metod | Açıklama |
-|----------|-------|----------|
-| `/api/all?symbol=` | GET | Tüm veriler (ticker + orderbook + candles + coingecko) |
-| `/api/kucoin/ticker?symbol=` | GET | KuCoin ticker |
-| `/api/kucoin/candles?symbol=&type=&limit=` | GET | KuCoin mum verileri |
-| `/api/coingecko/price?symbol=` | GET | CoinGecko fiyat |
-
-## 📄 Sinyal Formatı
-
-```json
-{
-  "signal": "BUY",
-  "confidence": 73,
-  "weightedScore": 18.5,
-  "breakdown": {
-    "trend": 45,
-    "momentum": 20,
-    "volatility": -5,
-    "volume": 10,
-    "structure": 15
-  },
-  "tfAlignment": "Kısmi Uyum (AL ağırlıklı)",
-  "regime": "Trend-Up",
-  "grade": "A",
-  "price": 0.0030486,
-  "state": "LONG",
-  "symbol": "ZBCNUSDT",
-  "timestamp": 1779881411913
-}
-```
-
-### Durum Makinesi (State Machine)
-
-| State | Açıklama |
-|-------|----------|
-| `LONG` | Güçlü AL sinyali, işlem açılabilir |
-| `SHORT` | Güçlü SAT sinyali, işlem açılabilir |
-| `WAIT` | Sinyal zayıf, teyit bekleniyor |
-| `NO_TRADE` | İşlem önerilmez (Chop, düşük ADX, yüksek volatilite) |
-
-### False Signal Filter
-
-Sinyal şu durumlarda **NO_TRADE** olarak işaretlenir:
-- Piyasa rejimi **Chop** ise
-- **ADX < 15** (trend yok)
-- **ATR% > 8** (aşırı volatilite)
-- **Grade C veya NT**
-- **Güven < %40**
-
-## 💼 Paper Trading
-
-**Varsayılan çalışma modu: PAPER**
-
-Paper trading, gerçek para kullanmadan sanal portföy üzerinde işlem yapmanızı sağlar.
-
-### Özellikler
-- Sanal bakiye (ZBCNUSDT: $10,000 / PROSUSDT: $5,000)
-- LONG ve SHORT pozisyonlar
-- Stop-loss ve take-profit yönetimi
-- Otomatik SL/TP kontrolü
-- İşlem onay sistemi (manuel onay)
-- Detaylı işlem geçmişi
-- Win rate, PnL, getiri takibi
-
-### Live Mode
-**Gerçek işlem modu varsayılan olarak KAPALIDIR.** 
-- Live mode'a geçmek için `PAPER_TRADING_MODE=live` ayarlanmalıdır
-- Tüm işlemler manuel onay gerektirir
-- API anahtarları `.env` dosyasından okunur, koda gömülmez
-
-## 🔒 Güvenlik
-
-- **API anahtarları asla koda gömülmez** - `.env` dosyasından okunur
-- **Hardcoded secret yok** - Tüm hassas bilgiler environment variable
-- **Rate limiting** - 200 istek/dakika
-- **CORS** - Yapılandırılabilir origin
-- **trust proxy** - Reverse proxy arkasında doğru IP
-- **Live trade kapalı** - Varsayılan paper mod
-- **Manuel onay** - Live modda tüm işlemler onay gerektirir
-
-## 📝 Lisans
-
-MIT License - SERDOBABA
-
-Bu proje açık kaynak olup aşağıdaki lisanslı paketleri kullanır:
-- **Express.js** (MIT) - Web sunucu
-- **express-rate-limit** (MIT) - Rate limiting
-- **ws** (MIT) - WebSocket
-- **nodemon** (MIT) - Geliştirme otomasyonu
-
-## 🤝 Katkı
-
-1. Fork edin
-2. Feature branch oluşturun (`git checkout -b feature/yeni-ozellik`)
-3. Değişikliklerinizi commit edin (`git commit -m 'feat: yeni özellik'`)
-4. Branch'inizi push edin (`git push origin feature/yeni-ozellik`)
-5. Pull Request açın
-
----
-
-⚠️ **Uyarı**: Bu yazılım yatırım tavsiyesi vermez. Kullanımı tamamen kullanıcının sorumluluğundadır.
+- [KuCoin API Documentation](https://www.kucoin.com/docs)
+- [CoinGecko API Documentation](https://docs.coingecko.com/)
+- [Express.js Documentation](https://expressjs.com/)
+- [Node.js Documentation](https://nodejs.org/docs/latest/api/)

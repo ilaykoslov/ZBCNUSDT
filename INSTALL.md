@@ -4,7 +4,7 @@
 
 ### 1. Repository Clone
 ```bash
-git clone https://github.com/SERDOBABA/ZBCNUSDT.git
+git clone https://github.com/ilaykoslov/ZBCNUSDT.git
 cd ZBCNUSDT
 ```
 
@@ -75,8 +75,10 @@ npm start
 ### Testing
 ```bash
 npm test           # Quick test
-npm run test:full   # Comprehensive test
-npm run health      # Health check
+npm run test:full        # Comprehensive test
+npm run test:integration  # API and paper-trading integration test
+npm run test:all         # Run all test groups
+npm run health           # Health check
 ```
 
 ## 📊 Dashboard Access
@@ -199,7 +201,7 @@ rm -rf node_modules/.cache
 
 ## 📞 Support
 
-- GitHub Issues: https://github.com/SERDOBABA/ZBCNUSDT/issues
+- GitHub Issues: https://github.com/ilaykoslov/ZBCNUSDT/issues
 - Documentation: See README.md and inline comments
 - Troubleshooting: Check logs and test endpoints
 
