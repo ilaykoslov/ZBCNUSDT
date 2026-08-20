@@ -42,7 +42,7 @@
   "homepage": "https://github.com/ilaykoslov/ZBCNUSDT#readme",
   "dependencies": {
     "express": "^5.2.1",
-    "express-rate-limit": "^7.1.5",
+    "express-rate-limit": "^8.6.2",
     "ws": "^8.16.0"
   },
   "devDependencies": {
