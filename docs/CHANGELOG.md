@@ -2,6 +2,14 @@
 
 ## [Unreleased] - 2026-08-20
 
+### ZBCN Özel Sinyal Motoru ve Canlı Geri Besleme (Learning Engine)
+
+- `core/signals/zbcnEngine.js` eklendi. ZBCN'in KuCoin geçmiş verileri üzerinden ölçülen anlık volatilitesi (ATR%) baz alınarak ZBCN'e özel piyasa rejimi algılama (Volatile-Chop, Volatile-Trend, Low-Vol-Range) uygulandı.
+- `server.js` içine arka planda çalışan (Background Evaluation Loop) bir geriye dönük test (backtest) mekanizması eklendi. Üretilen her ZBCN sinyali 4 saat sonra gelecek fiyat hareketleriyle (Take Profit %2, Stop Loss %1) değerlendirilerek başarılı/başarısız olarak etiketleniyor.
+- `zbcn_eval.json` çalışma zamanı veri dosyası ile motorun geçmiş isabet oranı (Historical Accuracy) kalıcı olarak saklanıyor.
+- İsabet oranı %40'ın altına düştüğünde, ZBCN motoru yeni üretilen sinyallerin ağırlık skorunu %20 oranında cezalandırarak yanlış sinyal tekrarını önleyen bir öğrenme (learning penalty) katmanı eklendi.
+- Dashboard arayüzü (`dashboard.html`), backend tarafından `/api/all` üzerinden iletilen `historicalAccuracy` bilgisini canlı veri akışında (polling ve websocket uyumlu) gösterecek şekilde güncellendi. Sinyal kartına "Motor İsabeti" satırı eklendi.
+
 ### Dokümantasyon ve depo bakımı
 
 - Ana README; proje amacı, hızlı başlangıç, yapılandırma, API özeti, test komutları ve proje yapısını açıklayacak şekilde yeniden düzenlendi.

@@ -5,6 +5,7 @@
  */
 
 const { analyzeConfluence, detectMarketRegime, getRegimeWeights, calculateTradeGrade } = require('./confluence');
+const zbcnEngine = require('./zbcnEngine');
 
 // ---------- Math helpers ----------
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -505,7 +506,13 @@ function analyzeTimeframeTf(candles, tfName, appConfig) {
 
     // Regime
     const smaSlope5 = slope(sma(closes, 5), 2);
-    const regime = detectMarketRegime(adxVal, bbBandwidth, atrPct, sma7Slope, smaSlope5);
+    let regime = detectMarketRegime(adxVal, bbBandwidth, atrPct, sma7Slope, smaSlope5);
+    
+    // ZBCN-specific regime override if active
+    if (appConfig?.activeSymbol === 'ZBCNUSDT') {
+        const zbcnReg = zbcnEngine.detectZbcnRegime(atrPct, adxVal);
+        if (zbcnReg) regime = zbcnReg;
+    }
 
     // Regime weights
     const baseWeights = appConfig?.categoryWeights || { trend: 30, momentum: 25, volatility: 15, volume: 15, structure: 15 };
@@ -631,8 +638,18 @@ function computeSignal({ candlesByTf, appConfig, symbol }) {
     const regime = primary?.regime || confluencePayload?.results?.[0]?.details?.regime || 'Unknown';
     const grade = primary?.grade || { grade: 'NT', gradeColor: '#64748b', gradeLabel: 'NT', advice: '—' };
 
-    const weightedScore = confluencePayload.weightedScore || 0;
-    const confidence = confluencePayload.confidence ?? 50;
+    let weightedScore = confluencePayload.weightedScore || 0;
+    let confidence = confluencePayload.confidence ?? 50;
+    
+    // Apply ZBCN-specific learning penalty if this is ZBCNUSDT
+    if (symbol === 'ZBCNUSDT') {
+        const evalState = zbcnEngine.getEvalState();
+        weightedScore = zbcnEngine.applyZbcnLearningPenalty(weightedScore, evalState);
+        // Adjust confidence slightly down if penalized
+        if (weightedScore !== confluencePayload.weightedScore) {
+            confidence = Math.max(30, confidence - 10);
+        }
+    }
 
     const now = Date.now();
     const price = (() => {

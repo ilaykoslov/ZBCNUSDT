@@ -5,6 +5,8 @@ const https = require('https');
 const http = require('http');
 const config = require('./config');
 const { PaperTradingEngine, RiskManager, DataValidator } = require('./core');
+const { computeSignal } = require('./core/signals/signalEngine');
+const zbcnEngine = require('./core/signals/zbcnEngine');
 const { retryManager } = require('./utils/retry');
 const { sendTelegramMessage, sendDiscordMessage } = require('./utils/webhook');
 const { WebSocketServer } = require('ws');
@@ -692,6 +694,13 @@ app.get('/api/all', async (req, res) => {
             _symbol: symbol,
             _validation: validationResult 
         };
+        
+        if (symbol === 'ZBCNUSDT') {
+            const evalState = zbcnEngine.getEvalState();
+            responseData.historicalAccuracy = evalState.historicalAccuracy;
+        } else {
+            responseData.historicalAccuracy = null;
+        }
 
         const hasValidData = ticker && ticker.code === '200000';
         if (hasValidData) {
@@ -714,7 +723,6 @@ app.get('/api/all', async (req, res) => {
 // ========================================
 // SİNYAL ENDPOINT - BACKEND SOURCE OF TRUTH
 // ========================================
-const { computeSignal } = require('./core/signals/signalEngine');
 
 function parseKuCoinCandlesToBackend(data) {
     // KuCoin format: [time, open, close, high, low, volume, turnover]
@@ -784,6 +792,52 @@ app.get('/api/signal', async (req, res) => {
             candlesByTf,
             appConfig: config
         });
+
+        // Add historical accuracy to payload for dashboard
+        if (symbol === 'ZBCNUSDT') {
+            const evalState = zbcnEngine.getEvalState();
+            payload.historicalAccuracy = evalState.historicalAccuracy;
+        } else {
+            payload.historicalAccuracy = null;
+        }
+
+        // ZBCN Background Evaluation Loop
+        if (symbol === 'ZBCNUSDT') {
+            setImmediate(() => {
+                try {
+                    const evalState = zbcnEngine.getEvalState();
+                    const hist = signalHistories[symbol] || [];
+                    // Find a recent signal that hasn't been evaluated yet, wait at least 4 hours
+                    const pendingEval = hist.find(s => 
+                        s.signal !== 'NEUTRAL' && 
+                        (Date.now() - s.timestamp) > 4 * 60 * 60 * 1000 &&
+                        (!evalState.lastEvaluatedTimestamp || s.timestamp > evalState.lastEvaluatedTimestamp)
+                    );
+                    
+                    if (pendingEval) {
+                        // Pass the 1h candles which cover the future of that signal
+                        const outcome = zbcnEngine.evaluateSignalOutcome(pendingEval, c1h);
+                        if (outcome !== null) {
+                            if (outcome === true) {
+                                if (pendingEval.signal === 'BUY') evalState.truePositives++;
+                                else evalState.trueNegatives++;
+                            } else {
+                                if (pendingEval.signal === 'BUY') evalState.falsePositives++;
+                                else evalState.falseNegatives++;
+                            }
+                            evalState.totalEvaluated++;
+                            const totalCorrect = evalState.truePositives + evalState.trueNegatives;
+                            evalState.historicalAccuracy = Math.round((totalCorrect / evalState.totalEvaluated) * 100);
+                            evalState.lastEvaluatedTimestamp = pendingEval.timestamp;
+                            zbcnEngine.saveEvalState(evalState);
+                            console.log(`[ZBCN Eval] Outcome for ${pendingEval.signal} at ${pendingEval.price}: ${outcome ? 'SUCCESS' : 'FAILED'}. Accuracy: ${evalState.historicalAccuracy}%`);
+                        }
+                    }
+                } catch (err) {
+                    console.error('ZBCN Eval loop error:', err.message);
+                }
+            });
+        }
 
         res.json(payload);
 

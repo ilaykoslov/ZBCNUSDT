@@ -246,6 +246,7 @@
                 <div class="signal-label">Sinyal Yönü</div>
                 <div class="signal-badge" id="signalBadge">--</div>
                 <div class="signal-confidence">Güven: <strong id="signalConfidence">--</strong></div>
+                <div class="signal-confidence" style="margin-top: 5px;">Motor İsabeti: <strong id="historicalAccuracy">--</strong></div>
                 <div class="signal-strength-bar">
                     <div class="signal-strength-fill" id="signalBar" style="width:0%"></div>
                 </div>
@@ -1075,6 +1076,21 @@ async function fetchAllData() {
         const now = new Date();
         if (!json._cached) {
             document.getElementById('lastUpdate').textContent = now.toLocaleTimeString('tr-TR');
+        }
+        
+        // Bind historical accuracy if provided by backend
+        if (json.historicalAccuracy !== undefined && json.historicalAccuracy !== null) {
+            const accEl = document.getElementById('historicalAccuracy');
+            if (accEl) {
+                accEl.textContent = json.historicalAccuracy + '%';
+                accEl.style.color = json.historicalAccuracy >= 50 ? '#22c55e' : '#ef4444';
+            }
+        } else {
+            const accEl = document.getElementById('historicalAccuracy');
+            if (accEl) {
+                accEl.textContent = '--';
+                accEl.style.color = '#94a3b8';
+            }
         }
         
         if (hasData) {
